@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>仓库对比分析 - 信创开源数据分析平台</title>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+<style>
+/* ============================================================
+   Design tokens（与 index.html 统一色板）
+   ============================================================ */
+:root {
+  --surface-page:   #0d0d0d;
+  --surface-1:      #1a1a19;
+  --text-primary:   #ffffff;
+  --text-secondary: #c3c2b7;
+  --text-muted:     #898781;
+  --gridline:       #2c2c2a;
+  --baseline:       #383835;
+  --border:         rgba(255,255,255,0.10);
+  --series-1:       #3987e5;
+  --series-2:       #d95926;
+  --series-3:       #199e70;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  background: var(--surface-page);
+  color: var(--text-primary);
+  min-height: 100vh;
+}
+.navbar {
+  display: flex; align-items: center; justify-content: space-between;
+  height: 56px; padding: 0 28px;
+  background: var(--surface-1); border-bottom: 1px solid var(--border);
+}
+.navbar .brand { font-size: 17px; font-weight: 600; }
+.navbar .btn-back {
+  padding: 6px 16px; font-size: 12px; color: var(--text-secondary);
+  background: transparent; border: 1px solid var(--border);
+  border-radius: 4px; cursor: pointer; text-decoration: none;
+}
+.navbar .btn-back:hover { border-color: var(--series-1); color: var(--series-1); }
+.container { max-width: 1400px; margin: 0 auto; padding: 28px; }
+
+/* ============================================================
+   筛选栏（仓库多选）
+   ============================================================ */
+.filter-bar {
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  margin-bottom: 20px; padding: 16px 20px;
+  background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px;
+}
+.dropdown { position: relative; }
+.dropdown-btn {
+  display: flex; align-items: center; gap: 8px;
+  height: 38px; padding: 0 14px; font-size: 13px;
+  color: var(--text-secondary); background: var(--surface-page);
+  border: 1px solid var(--border); border-radius: 6px; cursor: pointer;
+  white-space: nowrap;
+}
+.dropdown-btn:hover { border-color: var(--series-1); }
+.dropdown-btn .caret { color: var(--text-muted); font-size: 10px; }
+.dropdown-btn .repo-count { color: var(--series-1); font-weight: 600; }
+.dropdown-panel {
+  display: none; position: absolute; top: 44px; left: 0; z-index: 20;
+  width: 400px; max-height: 340px; overflow-y: auto;
+  background: var(--surface-1); border: 1px solid var(--border);
+  border-radius: 8px; padding: 8px; box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+}
+.dropdown.open .dropdown-panel { display: block; }
+.dropdown-item { border-radius: 5px; }
+.dropdown-item:hover { background: rgba(57,135,229,0.08); }
+.dropdown-item label {
+  display: flex; align-items: center; gap: 10px; padding: 8px 10px;
+  font-size: 13px; color: var(--text-secondary); cursor: pointer;
+}
+.dropdown-item input[type=checkbox] { accent-color: var(--series-1); cursor: pointer; flex-shrink: 0; }
+.dropdown-item .repo-name { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dropdown-item .repo-star { font-size: 11px; color: var(--text-muted); flex-shrink: 0; }
+.repo-hint { font-size: 12px; color: var(--text-muted); }
+
+/* ============================================================
+   图表卡片
+   ============================================================ */
+.chart-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.chart-card {
+  background: var(--surface-1); border: 1px solid var(--border);
+  border-radius: 10px; padding: 16px 20px 12px;
+}
+.card-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+.card-title { font-size: 14px; font-weight: 600; color: var(--text-secondary); letter-spacing: 0.02em; }
+.filter-select {
+  height: 30px; padding: 0 8px; font-size: 12px;
+  color: var(--text-secondary); background: var(--surface-page);
+  border: 1px solid var(--border); border-radius: 6px; cursor: pointer; outline: none;
+}
+.chart-box { width: 100%; height: 480px; }
+.empty-text { color: var(--text-muted); font-size: 14px; text-align: center; padding: 80px 0; }
+.loading-text { color: var(--text-muted); font-size: 13px; text-align: center; padding: 80px 0; }
+
+@media (max-width: 1024px) { .chart-row { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+
+<nav class="navbar">
+  <span class="brand">🔍 仓库对比分析</span>
+  <a class="btn-back" href="dashboard.html">← 返回工作台</a>
+</nav>
+
+<div class="container">
+
+  <!-- 仓库多选 -->
+  <div class="filter-bar">
+    <span style="font-size:13px;color:var(--text-muted)">对比仓库：</span>
+    <div class="dropdown" id="repoDropdown">
+      <button class="dropdown-btn" onclick="toggleDropdown(event)">
+        <span>选择仓库</span>
+        <span class="repo-count" id="repoCount"></span>
+        <span class="caret">▼</span>
+      </button>
+      <div class="dropdown-panel" id="repoPanel"></div>
+    </div>
+    <span class="repo-hint" id="repoHint">按 Star 排名前 20，最多选 6 个</span>
+  </div>
+
+  <!-- 雷达图 + 玫瑰图 -->
+  <div class="chart-row">
+    <div class="chart-card">
+      <div class="card-head"><span class="card-title">📡 多维度对比（雷达图）</span></div>
+      <div class="chart-box" id="chartRadar"><div class="loading-text">加载中...</div></div>
+    </div>
+    <div class="chart-card">
+      <div class="card-head">
+        <span class="card-title">🌹 指标对比（玫瑰图）</span>
+        <select class="filter-select" id="roseMetric" onchange="onRoseMetric()">
+          <option value="starsCount">Star</option>
+          <option value="forksCount">Fork</option>
+          <option value="watchersCount">Watch</option>
+          <option value="openIssuesCount">Issue</option>
+        </select>
+      </div>
+      <div class="chart-box" id="chartRose"><div class="loading-text">加载中...</div></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const DARK_TEXT = '#c3c2b7';
+const DARK_MUTED = '#898781';
+const DARK_GRID = '#2c2c2a';
+const DARK_BASE = '#383835';
+const CAT_COLORS = ['#3987e5','#d95926','#199e70','#c98500','#d55181','#9085e9','#e66767','#008300'];
+const MAX_SELECT = 6;
+
+function comma(n) { return n == null ? '—' : Number(n).toLocaleString('en-US'); }
+function compact(n) {
+  if (n == null) return '—';
+  if (n >= 1e6) return (n/1e6).toFixed(1)+'M';
+  if (n >= 1e3) return (n/1e3).toFixed(1)+'K';
+  return String(n);
+}
+function esc(s) { return s ?
+  String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') : ''; }
+function hexToRgba(hex, a) {
+  const h = hex.replace('#', '');
+  return `rgba(${parseInt(h.slice(0,2),16)},${parseInt(h.slice(2,4),16)},${parseInt(h.slice(4,6),16)},${a})`;
+}
+
+let allRepos = [];
+let chartRadar, chartRose;
+let roseMetric = 'starsCount';
+
+/* ============================================================
+   仓库多选下拉
+   ============================================================ */
+function toggleDropdown(e) {
+  if (e) e.stopPropagation();
+  document.getElementById('repoDropdown').classList.toggle('open');
+}
+document.addEventListener('click', function(e) {
+  const dd = document.getElementById('repoDropdown');
+  if (!dd.contains(e.target)) dd.classList.remove('open');
+});
+
+function renderRepoPanel() {
+  const top = allRepos.slice(0, 20);
+  document.getElementById('repoPanel').innerHTML = top.map(d => `
+    <div class="dropdown-item">
+      <label title="${esc(d.fullName)}">
+        <input type="checkbox" class="repo-cb" value="${esc(d.fullName)}" onchange="onRepoChange(this)">
+        <span class="repo-name">${esc(d.fullName)}</span>
+        <span class="repo-star">⭐${compact(d.starsCount)}</span>
+      </label>
+    </div>
+  `).join('');
+}
+
+function getSelectedRepos() {
+  const names = new Set([...document.querySelectorAll('.repo-cb:checked')].map(cb => cb.value));
+  return allRepos.filter(r => names.has(r.fullName));
+}
+function updateRepoCount() {
+  document.getElementById('repoCount').textContent = `已选 ${getSelectedRepos().length} 个`;
+}
+function onRepoChange(cb) {
+  const checked = document.querySelectorAll('.repo-cb:checked');
+  if (checked.length > MAX_SELECT) {
+    cb.checked = false;
+    flashHint(`最多选择 ${MAX_SELECT} 个仓库`);
+  }
+  updateRepoCount();
+  renderCharts();
+}
+function flashHint(msg) {
+  const el = document.getElementById('repoHint');
+  el.textContent = msg;
+  el.style.color = '#e66767';
+  setTimeout(() => { el.textContent = '按 Star 排名前 20，最多选 6 个'; el.style.color = ''; }, 2000);
+}
+
+/* ============================================================
+   图表渲染
+   ============================================================ */
+function renderCharts() {
+  const repos = getSelectedRepos();
+  renderRadar(repos);
+  renderRose(repos);
+}
+
+function renderRadar(repos) {
+  const dom = document.getElementById('chartRadar');
+  if (chartRadar) chartRadar.dispose();
+  if (!repos.length) { dom.innerHTML = '<div class="empty-text">请选择仓库</div>'; return; }
+
+  chartRadar = echarts.init(dom);
+  const maxOf = key => Math.max(1, ...repos.map(r => r[key] || 0));
+  const indicator = [
+    { name: 'Star',  max: maxOf('starsCount') },
+    { name: 'Fork',  max: maxOf('forksCount') },
+    { name: 'Watch', max: maxOf('watchersCount') },
+    { name: 'Issue', max: maxOf('openIssuesCount') },
+  ];
+  chartRadar.setOption({
+    tooltip: { trigger: 'item', backgroundColor: '#1a1a19', borderColor: '#383835', textStyle: { color: '#fff', fontSize: 13 } },
+    legend: { bottom: 0, data: repos.map(r => r.fullName), textStyle: { color: DARK_TEXT, fontSize: 12 }, itemWidth: 10, itemHeight: 10 },
+    radar: {
+      indicator,
+      radius: '62%',
+      center: ['50%', '47%'],
+      axisName: { color: DARK_TEXT, fontSize: 12 },
+      splitLine: { lineStyle: { color: DARK_GRID } },
+      splitArea: { areaStyle: { color: ['rgba(255,255,255,0.02)', 'rgba(255,255,255,0.05)'] } },
+      axisLine: { lineStyle: { color: DARK_BASE } },
+    },
+    series: [{
+      type: 'radar',
+      symbol: 'circle',
+      symbolSize: 4,
+      lineStyle: { width: 2 },
+      data: repos.map((r, i) => ({
+        name: r.fullName,
+        value: [r.starsCount, r.forksCount, r.watchersCount, r.openIssuesCount],
+        itemStyle: { color: CAT_COLORS[i % CAT_COLORS.length] },
+        lineStyle: { color: CAT_COLORS[i % CAT_COLORS.length] },
+        areaStyle: { color: hexToRgba(CAT_COLORS[i % CAT_COLORS.length], 0.12) },
+      })),
+    }],
+  });
+}
+
+function renderRose(repos) {
+  const dom = document.getElementById('chartRose');
+  if (chartRose) chartRose.dispose();
+  if (!repos.length) { dom.innerHTML = '<div class="empty-text">请选择仓库</div>'; return; }
+
+  chartRose = echarts.init(dom);
+  const metricLabel = { starsCount: 'Star', forksCount: 'Fork', watchersCount: 'Watch', openIssuesCount: 'Issue' }[roseMetric];
+  chartRose.setOption({
+    tooltip: {
+      trigger: 'item', backgroundColor: '#1a1a19', borderColor: '#383835',
+      textStyle: { color: '#fff', fontSize: 13 },
+      formatter: p => `<strong>${esc(p.name)}</strong><br>${metricLabel}：${comma(p.value)}（${p.percent}%）`
+    },
+    legend: { bottom: 0, data: repos.map(r => r.fullName), textStyle: { color: DARK_TEXT, fontSize: 12 }, itemWidth: 10, itemHeight: 10 },
+    series: [{
+      type: 'pie',
+      roseType: 'radius',
+      radius: ['16%', '72%'],
+      center: ['50%', '47%'],
+      itemStyle: { borderColor: '#1a1a19', borderWidth: 2, borderRadius: 3 },
+      label: { color: DARK_TEXT, fontSize: 11, formatter: p => p.name.length > 16 ? p.name.slice(0, 16) + '…' : p.name },
+      data: repos.map((r, i) => ({ name: r.fullName, value: r[roseMetric] || 0, itemStyle: { color: CAT_COLORS[i % CAT_COLORS.length] } })),
+    }],
+  });
+}
+
+function onRoseMetric() {
+  roseMetric = document.getElementById('roseMetric').value;
+  renderRose(getSelectedRepos());
+}
+
+/* ============================================================
+   初始化
+   ============================================================ */
+fetch('/api/repos')
+  .then(r => r.json())
+  .then(j => {
+    if (j.code !== 0 || !j.data) throw new Error('API error');
+    allRepos = j.data;
+    renderRepoPanel();
+    document.querySelectorAll('.repo-cb').forEach((cb, i) => { cb.checked = i < 3; });
+    updateRepoCount();
+    renderCharts();
+  })
+  .catch(() => {
+    document.getElementById('chartRadar').innerHTML = '<div class="empty-text">数据加载失败，请确认 Flask 服务已启动</div>';
+    document.getElementById('chartRose').innerHTML = '';
+  });
+
+window.addEventListener('resize', () => {
+  if (chartRadar) chartRadar.resize();
+  if (chartRose) chartRose.resize();
+});
+</script>
+</body>
+</html>

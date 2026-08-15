@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>工作台 - 信创开源数据分析平台</title>
+<style>
+/* ============================================================
+   Design tokens（与 index.html 统一色板）
+   ============================================================ */
+:root {
+  --surface-page:   #0d0d0d;
+  --surface-1:      #1a1a19;
+  --text-primary:   #ffffff;
+  --text-secondary: #c3c2b7;
+  --text-muted:     #898781;
+  --border:         rgba(255,255,255,0.10);
+  --series-1:       #3987e5;
+  --series-2:       #d95926;
+  --series-3:       #199e70;
+  --series-4:       #c98500;
+}
+
+/* ============================================================
+   Reset & base
+   ============================================================ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  background: var(--surface-page);
+  color: var(--text-primary);
+  min-height: 100vh;
+}
+
+/* ============================================================
+   Top navbar
+   ============================================================ */
+.navbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 56px;
+  padding: 0 28px;
+  background: var(--surface-1);
+  border-bottom: 1px solid var(--border);
+}
+.navbar .brand {
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--text-primary);
+}
+.navbar .user-info {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+.navbar .user-info .username {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+.navbar .btn-logout {
+  padding: 6px 16px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.navbar .btn-logout:hover {
+  color: #e66767;
+  border-color: #e66767;
+}
+
+/* ============================================================
+   Main content
+   ============================================================ */
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 28px;
+}
+
+/* ---- KPI cards ---- */
+.kpi-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+}
+.kpi-card {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.kpi-card .kpi-icon {
+  font-size: 28px;
+}
+.kpi-card .kpi-label {
+  font-size: 13px;
+  color: var(--text-muted);
+  letter-spacing: 0.03em;
+}
+.kpi-card .kpi-value {
+  font-size: 32px;
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1.1;
+}
+
+/* ---- content row ---- */
+.content-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+/* ---- panels ---- */
+.panel {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 24px;
+}
+.panel h3 {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 20px;
+  color: var(--text-primary);
+}
+
+/* ---- quick links ---- */
+.quick-links {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.quick-link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  background: var(--surface-page);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  text-decoration: none;
+  color: var(--text-primary);
+  font-size: 14px;
+  transition: all 0.2s;
+  cursor: pointer;
+}
+.quick-link:hover {
+  border-color: var(--series-1);
+  background: rgba(57, 135, 229, 0.08);
+}
+.quick-link .link-arrow {
+  color: var(--text-muted);
+  font-size: 16px;
+}
+
+/* ---- overview table ---- */
+.overview-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+.overview-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 14px;
+}
+.overview-item:last-child {
+  border-bottom: none;
+}
+.overview-item .item-label {
+  color: var(--text-secondary);
+}
+.overview-item .item-value {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+/* loading / error states */
+.loading { color: var(--text-muted); font-size: 13px; }
+.error   { color: #e66767; font-size: 13px; }
+</style>
+</head>
+<body>
+
+<!-- ============================================================
+     Top navbar
+     ============================================================ -->
+<nav class="navbar">
+  <span class="brand">🏛️ 信创开源数据分析平台</span>
+  <div class="user-info">
+    <span>👤</span>
+    <a class="username" id="displayUser" href="profile.html" style="text-decoration:none;color:var(--text-primary);font-weight:500">admin</a>
+    <button class="btn-logout" onclick="handleLogout()">退出</button>
+  </div>
+</nav>
+
+<!-- ============================================================
+     Main content
+     ============================================================ -->
+<div class="container">
+
+  <!-- 4 KPI cards -->
+  <div class="kpi-row">
+    <div class="kpi-card">
+      <span class="kpi-icon">📦</span>
+      <span class="kpi-label">仓库总数</span>
+      <span class="kpi-value" id="kpiRepos">--</span>
+    </div>
+    <div class="kpi-card">
+      <span class="kpi-icon">⭐</span>
+      <span class="kpi-label">Star 总数</span>
+      <span class="kpi-value" id="kpiStars">--</span>
+    </div>
+    <div class="kpi-card">
+      <span class="kpi-icon">🍴</span>
+      <span class="kpi-label">Fork 总数</span>
+      <span class="kpi-value" id="kpiForks">--</span>
+    </div>
+    <div class="kpi-card">
+      <span class="kpi-icon">🏢</span>
+      <span class="kpi-label">组织数</span>
+      <span class="kpi-value" id="kpiOrgs">--</span>
+    </div>
+  </div>
+
+  <!-- 快捷入口 + 数据概览 -->
+  <div class="content-row">
+    <!-- 快捷入口 -->
+    <div class="panel">
+      <h3>📊 快速入口</h3>
+      <div class="quick-links">
+        <a class="quick-link" href="index.html">
+          数据大屏 <span class="link-arrow">→</span>
+        </a>
+        <a class="quick-link" href="ranking.html">
+          项目排名 <span class="link-arrow">→</span>
+        </a>
+        <a class="quick-link" href="language.html">
+          语言分布 <span class="link-arrow">→</span>
+        </a>
+        <a class="quick-link" href="analysis.html">
+          项目筛选分析 <span class="link-arrow">→</span>
+        </a>
+        <a class="quick-link" href="trend.html">
+          趋势分析 <span class="link-arrow">→</span>
+        </a>
+        <a class="quick-link" href="org-compare.html">
+            组织对比 <span class="link-arrow">→</span>
+        </a>
+        <a class="quick-link" href="org-drill.html">
+          组织钻取分析 <span class="link-arrow">→</span>
+        </a>
+        <a class="quick-link" href="compare.html">
+          仓库对比分析 <span class="link-arrow">→</span>
+        </a>
+        <a class="quick-link" href="users.html">
+          用户管理 <span class="link-arrow">→</span>
+        </a>
+        <a class="quick-link" href="data.html">
+          数据管理 <span class="link-arrow">→</span>
+        </a>
+        <a class="quick-link" href="log.html">
+          系统日志 <span class="link-arrow">→</span>
+        </a>
+        <a class="quick-link" href="profile.html">
+          个人中心 <span class="link-arrow">→</span>
+        </a>
+      </div>
+    </div>
+
+    <!-- 数据概览 -->
+    <div class="panel">
+      <h3>📋 数据概览</h3>
+      <div id="overviewContent" class="loading">加载中...</div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ============================================================
+// Init: 读取登录用户名、获取 API 数据
+// ============================================================
+(function init() {
+  // 显示用户名
+  const user = localStorage.getItem('loginUser') || 'admin';
+  document.getElementById('displayUser').textContent = user;
+
+  // 请求后端概览接口
+  fetch('/api/overview')
+    .then(res => res.json())
+    .then(json => {
+      if (json.code !== 0 || !json.data) {
+        throw new Error('API error');
+      }
+      const d = json.data;
+
+      // 格式化数字（超过万用 k 后缀）
+      const fmt = n => n == null ? '--' : n >= 10000 ? (n / 10000).toFixed(1) + '万' : n.toLocaleString();
+
+      // 更新4个KPI卡片
+      document.getElementById('kpiRepos').textContent = fmt(d.totalRepos);
+      document.getElementById('kpiStars').textContent = fmt(d.totalStars);
+      document.getElementById('kpiForks').textContent = fmt(d.totalForks);
+      document.getElementById('kpiOrgs').textContent  = fmt(d.totalOrgs);
+
+      // 更新数据概览面板
+      document.getElementById('overviewContent').innerHTML = `
+        <div class="overview-list">
+          <div class="overview-item">
+            <span class="item-label">总仓库数</span>
+            <span class="item-value">${d.totalRepos ? d.totalRepos.toLocaleString() : '--'}</span>
+          </div>
+          <div class="overview-item">
+            <span class="item-label">总 Star 数</span>
+            <span class="item-value">${d.totalStars ? d.totalStars.toLocaleString() : '--'}</span>
+          </div>
+          <div class="overview-item">
+            <span class="item-label">总 Fork 数</span>
+            <span class="item-value">${d.totalForks ? d.totalForks.toLocaleString() : '--'}</span>
+          </div>
+          <div class="overview-item">
+            <span class="item-label">平均 Star</span>
+            <span class="item-value">${d.avgStars != null ? Number(d.avgStars).toFixed(1) : '--'}</span>
+          </div>
+          <div class="overview-item">
+            <span class="item-label">Gitee 仓库</span>
+            <span class="item-value">${d.giteeRepos != null ? d.giteeRepos.toLocaleString() : '--'}</span>
+          </div>
+          <div class="overview-item">
+            <span class="item-label">GitHub 仓库</span>
+            <span class="item-value">${d.githubRepos != null ? d.githubRepos.toLocaleString() : '--'}</span>
+          </div>
+          <div class="overview-item">
+            <span class="item-label">统计日期</span>
+            <span class="item-value">${d.statDate || '--'}</span>
+          </div>
+        </div>
+      `;
+    })
+    .catch(err => {
+      console.error(err);
+      document.getElementById('overviewContent').innerHTML =
+        '<span class="error">数据加载失败，请确认 Flask 服务已启动</span>';
+    });
+})();
+
+// 退出登录
+function handleLogout() {
+  localStorage.removeItem('token');
+  localStorage.removeItem('loginUser');
+  localStorage.removeItem('loginRole');
+  location.href = 'login.html';
+}
+</script>
+
+</body>
+</html>

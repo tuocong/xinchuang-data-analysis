@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>数据管理 - 信创开源数据分析平台</title>
+<style>
+/* ============================================================
+   Design tokens（与 index.html 统一色板）
+   ============================================================ */
+:root {
+  --surface-page:   #0d0d0d;
+  --surface-1:      #1a1a19;
+  --text-primary:   #ffffff;
+  --text-secondary: #c3c2b7;
+  --text-muted:     #898781;
+  --border:         rgba(255,255,255,0.10);
+  --series-1:       #3987e5;
+  --series-3:       #199e70;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  background: var(--surface-page);
+  color: var(--text-primary);
+  min-height: 100vh;
+}
+.navbar {
+  display: flex; align-items: center; justify-content: space-between;
+  height: 56px; padding: 0 28px;
+  background: var(--surface-1); border-bottom: 1px solid var(--border);
+}
+.navbar .brand { font-size: 17px; font-weight: 600; }
+.navbar .btn-back {
+  padding: 6px 16px; font-size: 12px; color: var(--text-secondary);
+  background: transparent; border: 1px solid var(--border);
+  border-radius: 4px; cursor: pointer; text-decoration: none;
+}
+.navbar .btn-back:hover { border-color: var(--series-1); color: var(--series-1); }
+.container { max-width: 1400px; margin: 0 auto; padding: 28px; }
+
+/* ============================================================
+   工具栏（搜索 + 导出）
+   ============================================================ */
+.toolbar {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+.search-box { display: flex; gap: 12px; flex: 1; min-width: 280px; }
+.search-box input {
+  flex: 1; height: 42px; padding: 0 16px;
+  font-size: 14px; color: var(--text-primary);
+  background: var(--surface-1); border: 1px solid var(--border);
+  border-radius: 6px; outline: none;
+}
+.search-box input:focus { border-color: var(--series-1); }
+.search-box input::placeholder { color: var(--text-muted); }
+.btn {
+  height: 42px; padding: 0 20px; font-size: 14px;
+  border-radius: 6px; cursor: pointer; transition: all 0.2s;
+}
+.btn-primary { background: var(--series-1); color: #fff; border: none; font-weight: 600; }
+.btn-primary:hover { background: #2b6ec9; }
+.btn-ghost {
+  background: transparent; color: var(--text-secondary);
+  border: 1px solid var(--border);
+}
+.btn-ghost:hover { border-color: var(--series-1); color: var(--series-1); }
+
+/* ============================================================
+   表格 & 分页
+   ============================================================ */
+.table-panel {
+  background: var(--surface-1); border: 1px solid var(--border);
+  border-radius: 10px; overflow: hidden;
+}
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+thead th {
+  text-align: left; padding: 12px 16px;
+  color: var(--text-muted); font-weight: 500; font-size: 12px;
+  background: rgba(255,255,255,0.03); border-bottom: 1px solid var(--border);
+  letter-spacing: 0.02em;
+}
+thead th.num, td.num { text-align: right; }
+tbody td { padding: 11px 16px; color: var(--text-secondary); border-bottom: 1px solid rgba(255,255,255,0.04); }
+tbody td.num { color: var(--text-primary); font-weight: 500; }
+tbody tr:hover { background: rgba(57,135,229,0.06); }
+
+.platform-badge { display: inline-block; padding: 2px 10px; border-radius: 10px; font-size: 11px; font-weight: 500; }
+.platform-badge.github { background: rgba(57,135,229,0.2); color: #5598e7; }
+.platform-badge.gitee  { background: rgba(25,158,112,0.2); color: #33c488; }
+
+.pager {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  padding: 14px 16px; border-top: 1px solid var(--border);
+}
+.page-btn {
+  min-width: 34px; height: 32px; padding: 0 12px; font-size: 13px;
+  color: var(--text-secondary); background: transparent;
+  border: 1px solid var(--border); border-radius: 6px; cursor: pointer;
+}
+.page-btn:hover:not(:disabled) { border-color: var(--series-1); color: var(--series-1); }
+.page-btn.active { background: var(--series-1); color: #fff; border-color: var(--series-1); font-weight: 600; }
+.page-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.page-ellipsis { color: var(--text-muted); padding: 0 2px; }
+.page-info { font-size: 12px; color: var(--text-muted); margin-left: auto; }
+.page-size {
+  height: 32px; padding: 0 8px; font-size: 12px;
+  color: var(--text-secondary); background: var(--surface-page);
+  border: 1px solid var(--border); border-radius: 6px; cursor: pointer; outline: none;
+}
+
+.loading-text { color: var(--text-muted); font-size: 13px; text-align: center; padding: 60px 0; }
+.empty-text { color: var(--text-muted); font-size: 14px; text-align: center; padding: 40px 0; }
+
+/* toast */
+.toast {
+  position: fixed; left: 50%; bottom: 40px; transform: translateX(-50%);
+  padding: 12px 22px; font-size: 13px; color: #fff;
+  background: #1a1a19; border: 1px solid var(--border); border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.5); opacity: 0; pointer-events: none;
+  transition: opacity 0.25s; z-index: 100;
+}
+.toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+
+<nav class="navbar">
+  <span class="brand">📋 数据管理</span>
+  <a class="btn-back" href="dashboard.html">← 返回工作台</a>
+</nav>
+
+<div class="container">
+
+  <!-- 工具栏 -->
+  <div class="toolbar">
+    <div class="search-box">
+      <input type="text" id="searchInput" placeholder="搜索仓库名、组织或编程语言..." onkeydown="if(event.key==='Enter')applySearch()">
+      <button class="btn btn-primary" onclick="applySearch()">🔍 搜索</button>
+    </div>
+    <button class="btn btn-ghost" onclick="exportData()">⬇️ 导出数据</button>
+  </div>
+
+  <!-- 表格 -->
+  <div class="table-panel">
+    <table>
+      <thead>
+        <tr>
+          <th style="width:56px">#</th>
+          <th>仓库全名</th>
+          <th>组织</th>
+          <th>语言</th>
+          <th class="num">⭐ Star</th>
+          <th class="num">🍴 Fork</th>
+          <th class="num">👀 Watch</th>
+          <th>平台</th>
+        </tr>
+      </thead>
+      <tbody id="tableBody">
+        <tr><td colspan="8" class="loading-text">加载中...</td></tr>
+      </tbody>
+    </table>
+
+    <!-- 分页 -->
+    <div class="pager">
+      <span class="page-info" id="pageInfo">共 0 条</span>
+      <select class="page-size" id="pageSize" onchange="changePageSize()">
+        <option value="10" selected>10 条/页</option>
+        <option value="20">20 条/页</option>
+        <option value="50">50 条/页</option>
+      </select>
+      <div id="pager"></div>
+    </div>
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="js/auth.js"></script>
+<script>
+function comma(n) { return n == null ? '—' : Number(n).toLocaleString('en-US'); }
+function esc(s) { return s ?
+  String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') : ''; }
+
+let allRows = [];
+let filtered = [];
+let page = 1;
+let pageSize = 10;
+
+/* ============================================================
+   加载数据
+   ============================================================ */
+function loadData() {
+  fetch('/api/repos')
+    .then(r => r.json())
+    .then(j => {
+      if (j.code !== 0 || !j.data) throw new Error('API error');
+      allRows = j.data;
+      applySearch();
+    })
+    .catch(() => {
+      document.getElementById('tableBody').innerHTML =
+        '<tr><td colspan="8" class="loading-text">数据加载失败，请确认 Flask 服务已启动</td></tr>';
+    });
+}
+
+/* ============================================================
+   搜索 & 分页
+   ============================================================ */
+function applySearch() {
+  const kw = document.getElementById('searchInput').value.trim().toLowerCase();
+  filtered = kw ? allRows.filter(d =>
+    (d.fullName || '').toLowerCase().includes(kw) ||
+    (d.orgName || '').toLowerCase().includes(kw) ||
+    (d.language || '').toLowerCase().includes(kw)
+  ) : allRows;
+  page = 1;
+  render();
+}
+
+function render() {
+  const total = filtered.length;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  if (page > totalPages) page = totalPages;
+  const start = (page - 1) * pageSize;
+  const rows = filtered.slice(start, start + pageSize);
+
+  document.getElementById('tableBody').innerHTML = rows.length ? rows.map((d, i) => `
+    <tr>
+      <td style="color:var(--text-muted);font-size:12px">${start + i + 1}</td>
+      <td style="color:var(--text-primary);font-weight:500">${esc(d.fullName)}</td>
+      <td>${esc(d.orgName)}</td>
+      <td>${d.language || '<span style="color:var(--text-muted)">N/A</span>'}</td>
+      <td class="num">${comma(d.starsCount)}</td>
+      <td class="num">${comma(d.forksCount)}</td>
+      <td class="num">${comma(d.watchersCount)}</td>
+      <td><span class="platform-badge ${d.platform}">${d.platform === 'gitee' ? 'Gitee' : 'GitHub'}</span></td>
+    </tr>
+  `).join('') : '<tr><td colspan="8" class="empty-text">没有匹配的数据</td></tr>';
+
+  document.getElementById('pageInfo').textContent = `共 ${total} 条 · 第 ${page} / ${totalPages} 页`;
+  renderPager(totalPages);
+}
+
+function renderPager(totalPages) {
+  const el = document.getElementById('pager');
+  if (totalPages <= 1) { el.innerHTML = ''; return; }
+
+  const win = 2;
+  const pages = [];
+  for (let i = 1; i <= totalPages; i++) {
+    if (i === 1 || i === totalPages || Math.abs(i - page) <= win) pages.push(i);
+  }
+
+  let html = `<button class="page-btn" ${page === 1 ? 'disabled' : ''} onclick="goPage(${page - 1})">‹ 上一页</button>`;
+  let prev = 0;
+  for (const p of pages) {
+    if (prev && p - prev > 1) html += '<span class="page-ellipsis">…</span>';
+    html += `<button class="page-btn ${p === page ? 'active' : ''}" onclick="goPage(${p})">${p}</button>`;
+    prev = p;
+  }
+  html += `<button class="page-btn" ${page === totalPages ? 'disabled' : ''} onclick="goPage(${page + 1})">下一页 ›</button>`;
+  el.innerHTML = html;
+}
+
+function goPage(p) { page = p; render(); }
+function changePageSize() {
+  pageSize = Number(document.getElementById('pageSize').value);
+  page = 1;
+  render();
+}
+
+/* ============================================================
+   导出（真实接口 /api/export，带 token 下载 CSV）
+   ============================================================ */
+function exportData() {
+  const kw = document.getElementById('searchInput').value.trim();
+  authFetch('/api/export?q=' + encodeURIComponent(kw))
+    .then(r => {
+      if (!r.ok) throw new Error('导出失败');
+      return r.blob();
+    })
+    .then(blob => {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'repos_export.csv';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      toast('导出成功');
+    })
+    .catch(err => { console.error(err); toast('导出失败或未登录'); });
+}
+
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+if (requireLogin()) loadData();
+</script>
+</body>
+</html>

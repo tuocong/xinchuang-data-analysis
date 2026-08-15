@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>个人中心 - 信创开源数据分析平台</title>
+<style>
+/* ============================================================
+   Design tokens（与 index.html 统一色板）
+   ============================================================ */
+:root {
+  --surface-page:   #0d0d0d;
+  --surface-1:      #1a1a19;
+  --text-primary:   #ffffff;
+  --text-secondary: #c3c2b7;
+  --text-muted:     #898781;
+  --border:         rgba(255,255,255,0.10);
+  --series-1:       #3987e5;
+  --series-3:       #199e70;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  background: var(--surface-page);
+  color: var(--text-primary);
+  min-height: 100vh;
+}
+.navbar {
+  display: flex; align-items: center; justify-content: space-between;
+  height: 56px; padding: 0 28px;
+  background: var(--surface-1); border-bottom: 1px solid var(--border);
+}
+.navbar .brand { font-size: 17px; font-weight: 600; }
+.navbar .btn-back {
+  padding: 6px 16px; font-size: 12px; color: var(--text-secondary);
+  background: transparent; border: 1px solid var(--border);
+  border-radius: 4px; cursor: pointer; text-decoration: none;
+}
+.navbar .btn-back:hover { border-color: var(--series-1); color: var(--series-1); }
+.container { max-width: 1000px; margin: 0 auto; padding: 28px; }
+
+/* ============================================================
+   资料卡（头像 + 基本信息）
+   ============================================================ */
+.profile-card {
+  display: flex; align-items: center; gap: 24px;
+  background: var(--surface-1); border: 1px solid var(--border);
+  border-radius: 10px; padding: 28px 32px; margin-bottom: 20px;
+}
+.avatar {
+  width: 72px; height: 72px; flex-shrink: 0; border-radius: 50%;
+  background: linear-gradient(135deg, #3987e5, #199e70);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 30px; font-weight: 600; color: #fff;
+}
+.profile-card .info { flex: 1; min-width: 0; }
+.profile-card .name-row { display: flex; align-items: center; gap: 12px; margin-bottom: 6px; }
+.profile-card .name { font-size: 20px; font-weight: 600; }
+.profile-card .username { font-size: 13px; color: var(--text-muted); }
+.role-badge { display: inline-block; padding: 3px 12px; border-radius: 10px; font-size: 12px; font-weight: 500; }
+.role-badge.admin { background: rgba(57,135,229,0.2); color: #5598e7; }
+.role-badge.user  { background: rgba(137,135,129,0.2); color: #c3c2b7; }
+.profile-card .meta { font-size: 13px; color: var(--text-secondary); }
+.profile-card .meta span { margin-right: 18px; }
+.profile-card .meta b { color: var(--text-primary); font-weight: 500; }
+
+/* ============================================================
+   统计卡片
+   ============================================================ */
+.stat-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 20px; }
+.stat-card {
+  background: var(--surface-1); border: 1px solid var(--border);
+  border-radius: 10px; padding: 20px 24px;
+}
+.stat-card .stat-icon { font-size: 22px; margin-bottom: 10px; }
+.stat-card .stat-value { font-size: 26px; font-weight: 600; color: var(--text-primary); }
+.stat-card .stat-label { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+
+/* ============================================================
+   表单卡片
+   ============================================================ */
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start; }
+.panel {
+  background: var(--surface-1); border: 1px solid var(--border);
+  border-radius: 10px; padding: 24px;
+}
+.panel h3 { font-size: 16px; font-weight: 600; margin-bottom: 20px; }
+.form-group { margin-bottom: 16px; }
+.form-group label {
+  display: block; font-size: 13px; color: var(--text-secondary); margin-bottom: 8px;
+}
+.form-group input {
+  width: 100%; height: 40px; padding: 0 12px;
+  font-size: 14px; color: var(--text-primary);
+  background: var(--surface-page); border: 1px solid var(--border);
+  border-radius: 6px; outline: none;
+}
+.form-group input:focus { border-color: var(--series-1); }
+.form-group input:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn {
+  height: 40px; padding: 0 22px; font-size: 14px; font-weight: 600;
+  border-radius: 6px; cursor: pointer; transition: all 0.2s; border: none;
+}
+.btn-primary { background: var(--series-1); color: #fff; }
+.btn-primary:hover { background: #2b6ec9; }
+
+/* toast */
+.toast {
+  position: fixed; left: 50%; bottom: 40px; transform: translateX(-50%);
+  padding: 12px 22px; font-size: 13px; color: #fff;
+  background: #1a1a19; border: 1px solid var(--border); border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.5); opacity: 0; pointer-events: none;
+  transition: opacity 0.25s; z-index: 100;
+}
+.toast.show { opacity: 1; }
+
+@media (max-width: 800px) {
+  .form-row { grid-template-columns: 1fr; }
+  .stat-row { grid-template-columns: repeat(2, 1fr); }
+}
+</style>
+</head>
+<body>
+
+<nav class="navbar">
+  <span class="brand">👤 个人中心</span>
+  <a class="btn-back" href="dashboard.html">← 返回工作台</a>
+</nav>
+
+<div class="container">
+
+  <!-- 资料卡 -->
+  <div class="profile-card">
+    <div class="avatar" id="avatar">A</div>
+    <div class="info">
+      <div class="name-row">
+        <span class="name" id="pName">系统管理员</span>
+        <span class="role-badge admin" id="pRole">管理员</span>
+      </div>
+      <div class="username" id="pUsername">@admin</div>
+      <div class="meta" style="margin-top:10px" id="pMeta"></div>
+    </div>
+  </div>
+
+  <!-- 统计卡片 -->
+  <div class="stat-row">
+    <div class="stat-card"><div class="stat-icon">🔐</div><div class="stat-value" id="sLogin">--</div><div class="stat-label">登录次数</div></div>
+    <div class="stat-card"><div class="stat-icon">⬇️</div><div class="stat-value" id="sExport">--</div><div class="stat-label">我的导出</div></div>
+    <div class="stat-card"><div class="stat-icon">⭐</div><div class="stat-value" id="sFav">--</div><div class="stat-label">我的收藏</div></div>
+    <div class="stat-card"><div class="stat-icon">📜</div><div class="stat-value" id="sLog">--</div><div class="stat-label">操作日志</div></div>
+  </div>
+
+  <!-- 基本资料 + 修改密码 -->
+  <div class="form-row">
+    <div class="panel">
+      <h3>📝 基本资料</h3>
+      <div class="form-group"><label>用户名</label><input id="fUsername" disabled></div>
+      <div class="form-group"><label>角色</label><input id="fRole" disabled></div>
+      <div class="form-group"><label>姓名</label><input id="fName" placeholder="真实姓名"></div>
+      <div class="form-group"><label>邮箱</label><input id="fEmail" type="email" placeholder="邮箱地址"></div>
+      <div class="form-group"><label>手机</label><input id="fPhone" placeholder="手机号"></div>
+      <button class="btn btn-primary" onclick="saveProfile()">保存资料</button>
+    </div>
+
+    <div class="panel">
+      <h3>🔒 修改密码</h3>
+      <div class="form-group"><label>原密码</label><input id="fOldPwd" type="password" placeholder="请输入原密码"></div>
+      <div class="form-group"><label>新密码</label><input id="fNewPwd" type="password" placeholder="至少 6 位"></div>
+      <div class="form-group"><label>确认新密码</label><input id="fConfirmPwd" type="password" placeholder="再次输入新密码"></div>
+      <button class="btn btn-primary" onclick="changePassword()">修改密码</button>
+    </div>
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="js/auth.js"></script>
+<script>
+/* ============================================================
+   个人中心：真实 /api/me + /api/change-password + /api/my-stats
+   姓名/邮箱/手机为本地资料（sys_user 表无这些字段）
+   ============================================================ */
+function esc(s) { return s == null ? '' :
+  String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+let username = '';
+let role = 'user';
+let profile = {};
+
+function init() {
+  authFetch('/api/me')
+    .then(r => r.json())
+    .then(json => {
+      if (json.code !== 0) return;
+      username = json.data.username;
+      role = json.data.role;
+      loadLocalProfile();
+      loadStats();
+      render();
+    });
+}
+
+function loadLocalProfile() {
+  const key = 'xinchuang_profile_' + username;
+  try { profile = JSON.parse(localStorage.getItem(key)); } catch (e) {}
+  if (!profile || typeof profile !== 'object') profile = {};
+}
+
+function loadStats() {
+  authFetch('/api/my-stats')
+    .then(r => r.json())
+    .then(json => {
+      if (json.code !== 0) return;
+      document.getElementById('sLogin').textContent = json.data.loginCount;
+      document.getElementById('sExport').textContent = json.data.exportCount;
+      document.getElementById('sLog').textContent = json.data.logCount;
+    })
+    .catch(() => {});
+}
+
+function render() {
+  document.getElementById('avatar').textContent = (username || '?').charAt(0).toUpperCase();
+  document.getElementById('pUsername').textContent = '@' + username;
+  document.getElementById('pName').textContent = profile.name || username;
+  document.getElementById('pRole').textContent = role === 'admin' ? '管理员' : '普通用户';
+  document.getElementById('pRole').className = 'role-badge ' + (role === 'admin' ? 'admin' : 'user');
+
+  document.getElementById('pMeta').innerHTML =
+    `<span>邮箱 <b>${esc(profile.email || '—')}</b></span>` +
+    `<span>手机 <b>${esc(profile.phone || '—')}</b></span>`;
+
+  document.getElementById('fUsername').value = username;
+  document.getElementById('fRole').value = role === 'admin' ? '管理员' : '普通用户';
+  document.getElementById('fName').value = profile.name || '';
+  document.getElementById('fEmail').value = profile.email || '';
+  document.getElementById('fPhone').value = profile.phone || '';
+}
+
+function saveProfile() {
+  profile.name = document.getElementById('fName').value.trim();
+  profile.email = document.getElementById('fEmail').value.trim();
+  profile.phone = document.getElementById('fPhone').value.trim();
+  if (!profile.name) { toast('请填写姓名'); return; }
+  localStorage.setItem('xinchuang_profile_' + username, JSON.stringify(profile));
+  render();
+  toast('资料已保存（本地保存）');
+}
+
+function changePassword() {
+  const oldPwd = document.getElementById('fOldPwd').value;
+  const newPwd = document.getElementById('fNewPwd').value;
+  const confirm = document.getElementById('fConfirmPwd').value;
+  if (!oldPwd) { toast('请输入原密码'); return; }
+  if (newPwd.length < 6) { toast('新密码至少 6 位'); return; }
+  if (newPwd !== confirm) { toast('两次输入的新密码不一致'); return; }
+
+  authFetch('/api/change-password', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ old_password: oldPwd, new_password: newPwd })
+  })
+    .then(r => r.json())
+    .then(json => {
+      if (json.code !== 0) { toast(json.msg || '修改失败'); return; }
+      document.getElementById('fOldPwd').value = '';
+      document.getElementById('fNewPwd').value = '';
+      document.getElementById('fConfirmPwd').value = '';
+      toast('密码修改成功');
+    })
+    .catch(() => toast('修改失败，请重试'));
+}
+
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+if (requireLogin()) init();
+</script>
+</body>
+</html>

@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>项目筛选分析 - 信创开源数据分析平台</title>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+<style>
+/* ============================================================
+   Design tokens（与 index.html 统一色板）
+   ============================================================ */
+:root {
+  --surface-page:   #0d0d0d;
+  --surface-1:      #1a1a19;
+  --text-primary:   #ffffff;
+  --text-secondary: #c3c2b7;
+  --text-muted:     #898781;
+  --gridline:       #2c2c2a;
+  --baseline:       #383835;
+  --border:         rgba(255,255,255,0.10);
+  --series-1:       #3987e5;
+  --series-2:       #d95926;
+  --series-3:       #199e70;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  background: var(--surface-page);
+  color: var(--text-primary);
+  min-height: 100vh;
+}
+.navbar {
+  display: flex; align-items: center; justify-content: space-between;
+  height: 56px; padding: 0 28px;
+  background: var(--surface-1);
+  border-bottom: 1px solid var(--border);
+}
+.navbar .brand { font-size: 17px; font-weight: 600; }
+.navbar .btn-back {
+  padding: 6px 16px; font-size: 12px; color: var(--text-secondary);
+  background: transparent; border: 1px solid var(--border);
+  border-radius: 4px; cursor: pointer; text-decoration: none;
+}
+.navbar .btn-back:hover { border-color: var(--series-1); color: var(--series-1); }
+.container { max-width: 1400px; margin: 0 auto; padding: 28px; }
+
+/* ============================================================
+   筛选栏（语言多选 + 平台单选 + 图表类型切换）
+   ============================================================ */
+.filter-bar {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 14px;
+  margin-bottom: 20px; padding: 16px 20px;
+  background: var(--surface-1); border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.filter-label { font-size: 13px; color: var(--text-muted); }
+
+/* ---- 语言多选下拉 ---- */
+.dropdown { position: relative; }
+.dropdown-btn {
+  display: flex; align-items: center; gap: 8px;
+  height: 38px; padding: 0 14px; font-size: 13px;
+  color: var(--text-secondary); background: var(--surface-page);
+  border: 1px solid var(--border); border-radius: 6px; cursor: pointer;
+  white-space: nowrap;
+}
+.dropdown-btn:hover { border-color: var(--series-1); }
+.dropdown-btn .caret { color: var(--text-muted); font-size: 10px; }
+.dropdown-btn .lang-count { color: var(--series-1); font-weight: 600; }
+.dropdown-panel {
+  display: none; position: absolute; top: 44px; left: 0; z-index: 20;
+  min-width: 230px; max-height: 320px; overflow-y: auto;
+  background: var(--surface-1); border: 1px solid var(--border);
+  border-radius: 8px; padding: 8px; box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+}
+.dropdown.open .dropdown-panel { display: block; }
+.dropdown-item {
+  display: flex; align-items: center; gap: 8px; padding: 7px 10px;
+  font-size: 13px; color: var(--text-secondary); border-radius: 5px; cursor: pointer;
+}
+.dropdown-item:hover { background: rgba(57,135,229,0.08); }
+.dropdown-item label { display: flex; align-items: center; gap: 8px; cursor: pointer; width: 100%; }
+.dropdown-item input[type=checkbox] { accent-color: var(--series-1); cursor: pointer; }
+.dropdown-item .lang-color { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.dropdown-actions {
+  display: flex; justify-content: space-between;
+  padding: 8px 6px 2px; margin-top: 6px; border-top: 1px solid var(--border);
+}
+.dropdown-actions a { font-size: 12px; color: var(--series-1); cursor: pointer; }
+.dropdown-actions a:hover { text-decoration: underline; }
+
+/* ---- 平台单选 ---- */
+.filter-select {
+  height: 38px; padding: 0 12px; font-size: 13px;
+  color: var(--text-secondary); background: var(--surface-page);
+  border: 1px solid var(--border); border-radius: 6px; cursor: pointer; outline: none;
+}
+.filter-select:focus { border-color: var(--series-1); }
+
+/* ---- 图表类型切换 ---- */
+.chart-types {
+  display: flex; margin-left: auto; border: 1px solid var(--border);
+  border-radius: 6px; overflow: hidden;
+}
+.chart-type-btn {
+  height: 38px; padding: 0 18px; font-size: 13px;
+  color: var(--text-secondary); background: transparent; border: none;
+  cursor: pointer; transition: all 0.2s;
+}
+.chart-type-btn + .chart-type-btn { border-left: 1px solid var(--border); }
+.chart-type-btn:hover { color: var(--text-primary); }
+.chart-type-btn.active { background: var(--series-1); color: #fff; font-weight: 600; }
+
+/* ============================================================
+   图表区域 & 数据表格
+   ============================================================ */
+.chart-card {
+  background: var(--surface-1); border: 1px solid var(--border);
+  border-radius: 10px; padding: 20px 24px; margin-bottom: 20px;
+}
+.chart-box { width: 100%; height: 480px; }
+.table-panel {
+  background: var(--surface-1); border: 1px solid var(--border);
+  border-radius: 10px; overflow: hidden;
+}
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+thead th {
+  text-align: left; padding: 12px 16px;
+  color: var(--text-muted); font-weight: 500; font-size: 12px;
+  background: rgba(255,255,255,0.03); border-bottom: 1px solid var(--border);
+  letter-spacing: 0.02em;
+}
+thead th.num, td.num { text-align: right; }
+tbody td { padding: 11px 16px; color: var(--text-secondary); border-bottom: 1px solid rgba(255,255,255,0.04); }
+tbody td.num { color: var(--text-primary); font-weight: 500; }
+tbody tr:hover { background: rgba(57,135,229,0.06); }
+
+.platform-badge { display: inline-block; padding: 2px 10px; border-radius: 10px; font-size: 11px; font-weight: 500; }
+.platform-badge.github { background: rgba(57,135,229,0.2); color: #5598e7; }
+.platform-badge.gitee  { background: rgba(25,158,112,0.2); color: #33c488; }
+
+.result-info { font-size: 12px; color: var(--text-muted); margin-bottom: 12px; }
+.loading-text { color: var(--text-muted); font-size: 13px; text-align: center; padding: 60px 0; }
+.empty-text { color: var(--text-muted); font-size: 14px; text-align: center; padding: 40px 0; }
+</style>
+</head>
+<body>
+
+<nav class="navbar">
+  <span class="brand">📊 项目筛选分析</span>
+  <a class="btn-back" href="dashboard.html">← 返回工作台</a>
+</nav>
+
+<div class="container">
+
+  <!-- 筛选栏 -->
+  <div class="filter-bar">
+    <span class="filter-label">筛选：</span>
+
+    <div class="dropdown" id="langDropdown">
+      <button class="dropdown-btn" onclick="toggleDropdown(event)">
+        语言 <span class="lang-count" id="langCount">全部</span> <span class="caret">▼</span>
+      </button>
+      <div class="dropdown-panel" id="langPanel"></div>
+    </div>
+
+    <select class="filter-select" id="platformSelect" onchange="applyFilter()">
+      <option value="">全部平台</option>
+      <option value="gitee">Gitee</option>
+      <option value="github">GitHub</option>
+    </select>
+
+    <div class="chart-types">
+      <button class="chart-type-btn active" data-type="bar" onclick="setChartType('bar')">柱状图</button>
+      <button class="chart-type-btn" data-type="pie" onclick="setChartType('pie')">饼图</button>
+      <button class="chart-type-btn" data-type="line" onclick="setChartType('line')">折线图</button>
+    </div>
+  </div>
+
+  <!-- 图表区域 -->
+  <div class="chart-card">
+    <div class="result-info" id="resultInfo"></div>
+    <div class="chart-box" id="chart"></div>
+  </div>
+
+  <!-- 数据表格 -->
+  <div class="table-panel">
+    <table>
+      <thead>
+        <tr>
+          <th style="width:48px">#</th>
+          <th>项目全名</th>
+          <th>组织</th>
+          <th>语言</th>
+          <th class="num">⭐ Star</th>
+          <th class="num">🍴 Fork</th>
+          <th>平台</th>
+        </tr>
+      </thead>
+      <tbody id="tableBody">
+        <tr><td colspan="7" class="loading-text">加载中...</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+</div>
+
+<script>
+/* ============================================================
+   工具函数（与其它页面一致）
+   ============================================================ */
+const DARK_TEXT = '#c3c2b7';
+const DARK_MUTED = '#898781';
+const DARK_GRID = '#2c2c2a';
+const DARK_BASE = '#383835';
+const SERIES_1 = '#3987e5';
+const CAT_COLORS = ['#3987e5','#d95926','#199e70','#c98500','#d55181','#008300','#9085e9','#e66767'];
+
+function comma(n) { return n == null ? '—' : Number(n).toLocaleString('en-US'); }
+function compact(n) {
+  if (n == null) return '—';
+  if (n >= 1e6) return (n/1e6).toFixed(1)+'M';
+  if (n >= 1e3) return (n/1e3).toFixed(1)+'K';
+  return String(n);
+}
+function esc(s) { return s ?
+  String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') : ''; }
+
+let allRows = [];
+let chartType = 'bar';
+let chart;
+
+/* ============================================================
+   语言多选下拉
+   ============================================================ */
+function toggleDropdown(e) {
+  if (e) e.stopPropagation();
+  document.getElementById('langDropdown').classList.toggle('open');
+}
+document.addEventListener('click', function(e) {
+  const dd = document.getElementById('langDropdown');
+  if (!dd.contains(e.target)) dd.classList.remove('open');
+});
+
+function renderLangPanel(langs) {
+  const panel = document.getElementById('langPanel');
+  panel.innerHTML = `
+    <div class="dropdown-item">
+      <label><input type="checkbox" id="langAll" checked onchange="selectAllLang(this.checked)"><span>全部语言</span></label>
+    </div>
+    ${langs.map((lang, i) => `
+      <div class="dropdown-item">
+        <label>
+          <input type="checkbox" class="lang-cb" value="${esc(lang)}" checked onchange="onLangChange()">
+          <span class="lang-color" style="background:${CAT_COLORS[i % CAT_COLORS.length]}"></span>
+          <span>${esc(lang)}</span>
+        </label>
+      </div>
+    `).join('')}
+    <div class="dropdown-actions">
+      <a onclick="selectAllLang(true)">全选</a>
+      <a onclick="selectAllLang(false)">清空</a>
+    </div>`;
+}
+
+function getSelectedLangs() {
+  return [...document.querySelectorAll('.lang-cb:checked')].map(cb => cb.value);
+}
+function updateLangCount() {
+  const total = document.querySelectorAll('.lang-cb').length;
+  const checked = getSelectedLangs().length;
+  document.getElementById('langCount').textContent =
+    checked === total ? `全部(${total})` : `已选${checked}/${total}`;
+  document.getElementById('langAll').checked = (checked === total);
+}
+function onLangChange() { updateLangCount(); applyFilter(); }
+function selectAllLang(checked) {
+  document.querySelectorAll('.lang-cb').forEach(cb => cb.checked = checked);
+  updateLangCount();
+  applyFilter();
+}
+
+/* ============================================================
+   筛选 & 渲染
+   ============================================================ */
+function getFilteredRows() {
+  const platform = document.getElementById('platformSelect').value;
+  const langs = getSelectedLangs();
+  let rows = allRows;
+  if (platform) rows = rows.filter(d => d.platform === platform);
+  if (langs.length) rows = rows.filter(d => langs.includes(d.language));
+  return rows;
+}
+
+function typeLabel() {
+  return chartType === 'bar' ? '柱状图' : chartType === 'pie' ? '饼图' : '折线图';
+}
+
+function applyFilter() {
+  const rows = getFilteredRows();
+  document.getElementById('resultInfo').textContent = rows.length
+    ? `共 ${rows.length} 个项目 · 当前图表：${typeLabel()}`
+    : '筛选后无数据';
+  renderChart(rows);
+  renderTable(rows);
+}
+
+function setChartType(type) {
+  chartType = type;
+  document.querySelectorAll('.chart-type-btn').forEach(b =>
+    b.classList.toggle('active', b.dataset.type === type));
+  applyFilter();
+}
+
+/* ============================================================
+   图表渲染（柱状 / 饼 / 折线三态）
+   ============================================================ */
+function renderChart(rows) {
+  const dom = document.getElementById('chart');
+  if (!rows || !rows.length) {
+    if (chart) { chart.clear(); }
+    return;
+  }
+  const sorted = [...rows].sort((a, b) => b.starsCount - a.starsCount);
+  if (chart) chart.dispose();
+  chart = echarts.init(dom);
+  if (chartType === 'bar') renderBar(chart, sorted);
+  else if (chartType === 'pie') renderPie(chart, sorted);
+  else renderLine(chart, sorted);
+}
+
+function renderBar(chart, rows) {
+  const items = rows.slice(0, 15).reverse();
+  chart.setOption({
+    title: { text: '项目 Star 排名（柱状图）', left: 'center', top: 4, textStyle: { color: '#fff', fontSize: 16, fontWeight: 600 } },
+    tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, backgroundColor: '#1a1a19', borderColor: '#383835', textStyle: { color: '#fff', fontSize: 13 } },
+    grid: { left: 12, right: 90, top: 48, bottom: 8, containLabel: true },
+    xAxis: { type: 'value', axisLine: { lineStyle: { color: DARK_BASE } }, axisTick: { show: false }, axisLabel: { color: DARK_MUTED, fontSize: 11, formatter: compact }, splitLine: { lineStyle: { color: DARK_GRID } } },
+    yAxis: { type: 'category', axisLine: { show: false }, axisTick: { show: false }, axisLabel: { color: DARK_TEXT, fontSize: 12, width: 180, overflow: 'truncate' }, data: items.map(d => d.fullName) },
+    series: [{ type: 'bar', data: items.map(d => d.starsCount), itemStyle: { color: SERIES_1, borderRadius: [0,4,4,0] }, barMaxWidth: 20, label: { show: true, position: 'right', color: DARK_TEXT, fontSize: 11, formatter: p => comma(p.value) } }],
+  });
+}
+
+function renderPie(chart, rows) {
+  let slices = rows.slice(0, 7);
+  if (rows.length > 7) {
+    const rest = rows.slice(7).reduce((a, d) => { a.starsCount += d.starsCount; return a; }, { fullName: '其他', starsCount: 0 });
+    slices.push(rest);
+  }
+  chart.setOption({
+    title: { text: 'Star 占比（饼图）', left: 'center', top: 4, textStyle: { color: '#fff', fontSize: 16, fontWeight: 600 } },
+    tooltip: { trigger: 'item', backgroundColor: '#1a1a19', borderColor: '#383835', textStyle: { color: '#fff', fontSize: 13 }, formatter: p => `<strong>${esc(p.name)}</strong><br>Star：${comma(p.value)}（${p.percent}%）` },
+    legend: { orient: 'vertical', right: 8, top: 'center', textStyle: { color: DARK_TEXT, fontSize: 12 }, itemWidth: 10, itemHeight: 10, itemGap: 10 },
+    series: [{ type: 'pie', radius: ['45%','72%'], center: ['42%','55%'], itemStyle: { borderColor: '#1a1a19', borderWidth: 2, borderRadius: 3 }, label: { show: true, position: 'inside', color: '#fff', fontSize: 11, formatter: p => p.percent >= 5 ? p.percent + '%' : '' }, emphasis: { scaleSize: 6 }, data: slices.map((d, i) => ({ name: d.fullName, value: d.starsCount, itemStyle: { color: CAT_COLORS[i % CAT_COLORS.length] } })) }],
+  });
+}
+
+function renderLine(chart, rows) {
+  const items = rows.slice(0, 20);
+  chart.setOption({
+    title: { text: 'Star 分布趋势（折线图）', left: 'center', top: 4, textStyle: { color: '#fff', fontSize: 16, fontWeight: 600 } },
+    tooltip: { trigger: 'axis', backgroundColor: '#1a1a19', borderColor: '#383835', textStyle: { color: '#fff', fontSize: 13 }, formatter: function(p) { const d = items[p[0].dataIndex]; return `<strong>${esc(d.fullName)}</strong><br>Star：<strong>${comma(d.starsCount)}</strong>`; } },
+    grid: { left: 12, right: 24, top: 48, bottom: 8, containLabel: true },
+    xAxis: { type: 'category', data: items.map((d, i) => '#' + (i + 1)), axisLine: { lineStyle: { color: DARK_BASE } }, axisTick: { show: false }, axisLabel: { color: DARK_MUTED, fontSize: 11 } },
+    yAxis: { type: 'value', axisLabel: { color: DARK_MUTED, fontSize: 11, formatter: compact }, splitLine: { lineStyle: { color: DARK_GRID } } },
+    series: [{ name: 'Star', type: 'line', data: items.map(d => d.starsCount), smooth: true, symbol: 'circle', symbolSize: 6, lineStyle: { color: SERIES_1, width: 2 }, itemStyle: { color: SERIES_1, borderColor: '#1a1a19', borderWidth: 2 }, areaStyle: { color: new echarts.graphic.LinearGradient(0,0,0,1,[{offset:0,color:'rgba(57,135,229,0.18)'},{offset:1,color:'rgba(57,135,229,0.02)'}]) } }],
+  });
+}
+
+/* ============================================================
+   数据表格
+   ============================================================ */
+function renderTable(rows) {
+  const tbody = document.getElementById('tableBody');
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="7" class="empty-text">没有匹配的数据</td></tr>';
+    return;
+  }
+  tbody.innerHTML = rows.map((d, i) => `
+    <tr>
+      <td style="color:var(--text-muted);font-size:12px">${i + 1}</td>
+      <td style="color:var(--text-primary);font-weight:500">${esc(d.fullName)}</td>
+      <td>${esc(d.orgName)}</td>
+      <td>${d.language || '<span style="color:var(--text-muted)">N/A</span>'}</td>
+      <td class="num">${comma(d.starsCount)}</td>
+      <td class="num">${comma(d.forksCount)}</td>
+      <td><span class="platform-badge ${d.platform}">${d.platform === 'gitee' ? 'Gitee' : 'GitHub'}</span></td>
+    </tr>
+  `).join('');
+}
+
+/* ============================================================
+   初始化
+   ============================================================ */
+fetch('/api/ranking')
+  .then(r => r.json())
+  .then(j => {
+    if (j.code !== 0 || !j.data) throw new Error('API error');
+    allRows = j.data;
+    const langs = [...new Set(allRows.map(d => d.language).filter(Boolean))].sort();
+    renderLangPanel(langs);
+    updateLangCount();
+    applyFilter();
+  })
+  .catch(() => {
+    document.getElementById('tableBody').innerHTML =
+      '<tr><td colspan="7" class="loading-text">数据加载失败，请确认 Flask 服务已启动</td></tr>';
+  });
+
+window.addEventListener('resize', () => { if (chart) chart.resize(); });
+</script>
+</body>
+</html>

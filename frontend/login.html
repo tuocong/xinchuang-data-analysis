@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>登录 - 信创开源数据分析平台</title>
+<style>
+/* ============================================================
+   Design tokens（与 index.html 统一色板）
+   ============================================================ */
+:root {
+  --surface-page:   #0d0d0d;
+  --surface-1:      #1a1a19;
+  --text-primary:   #ffffff;
+  --text-secondary: #c3c2b7;
+  --text-muted:     #898781;
+  --border:         rgba(255,255,255,0.10);
+  --series-1:       #3987e5;
+  --series-1-hover: #2b6ec9;
+}
+
+/* ============================================================
+   Reset & base
+   ============================================================ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body {
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  background: var(--surface-page);
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ============================================================
+   Login card
+   ============================================================ */
+.login-card {
+  width: 400px;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 48px 40px 40px;
+}
+
+/* ---- logo / title ---- */
+.login-header {
+  text-align: center;
+  margin-bottom: 40px;
+}
+.login-header .icon {
+  font-size: 48px;
+  margin-bottom: 12px;
+}
+.login-header h2 {
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  color: var(--text-primary);
+}
+.login-header p {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-top: 6px;
+}
+
+/* ---- form ---- */
+.form-group {
+  margin-bottom: 20px;
+}
+.form-group label {
+  display: block;
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+  letter-spacing: 0.02em;
+}
+.form-group input {
+  width: 100%;
+  height: 44px;
+  padding: 0 14px;
+  font-size: 14px;
+  color: var(--text-primary);
+  background: var(--surface-page);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.form-group input:focus {
+  border-color: var(--series-1);
+}
+.form-group input::placeholder {
+  color: var(--text-muted);
+}
+
+/* ---- button ---- */
+.btn-login {
+  width: 100%;
+  height: 46px;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: #ffffff;
+  background: var(--series-1);
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.2s;
+  margin-top: 8px;
+}
+.btn-login:hover {
+  background: var(--series-1-hover);
+}
+
+/* ---- footer hint ---- */
+.login-footer {
+  text-align: center;
+  margin-top: 24px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+</style>
+</head>
+<body>
+
+<div class="login-card">
+  <div class="login-header">
+    <div class="icon">🏛️</div>
+    <h2>信创开源数据分析平台</h2>
+    <p>Xinchuang Open Source Data Analytics</p>
+  </div>
+
+  <form onsubmit="handleLogin(event)">
+    <div class="form-group">
+      <label>👤 用户名</label>
+      <input type="text" id="username" placeholder="请输入用户名" autocomplete="username" required>
+    </div>
+    <div class="form-group">
+      <label>🔒 密码</label>
+      <input type="password" id="password" placeholder="请输入密码" autocomplete="current-password" required>
+    </div>
+    <button type="submit" class="btn-login">登 录</button>
+  </form>
+
+  <div class="login-footer">
+    信创数据仓库项目 · 论文演示原型
+  </div>
+</div>
+
+<script>
+function handleLogin(e) {
+  e.preventDefault();
+  const username = document.getElementById('username').value.trim();
+  const password = document.getElementById('password').value.trim();
+
+  if (!username || !password) {
+    alert('请输入用户名和密码');
+    return;
+  }
+
+  // 调后端 /api/login 做真实校验
+  fetch('/api/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, password })
+  })
+    .then(res => res.json())
+    .then(json => {
+      if (json.code !== 0) {
+        alert(json.msg || '登录失败');
+        return;
+      }
+      // 存 token + 用户信息，供后续页面携带鉴权
+      localStorage.setItem('token', json.data.token);
+      localStorage.setItem('loginUser', json.data.user.username);
+      localStorage.setItem('loginRole', json.data.user.role);
+      location.href = 'dashboard.html';
+    })
+    .catch(err => {
+      console.error(err);
+      alert('登录失败，请确认后端服务已启动');
+    });
+}
+</script>
+
+</body>
+</html>

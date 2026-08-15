@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>趋势分析 - 信创开源数据分析平台</title>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+<style>
+:root {
+  --surface-page:   #0d0d0d;
+  --surface-1:      #1a1a19;
+  --text-primary:   #ffffff;
+  --text-secondary: #c3c2b7;
+  --text-muted:     #898781;
+  --gridline:       #2c2c2a;
+  --baseline:       #383835;
+  --border:         rgba(255,255,255,0.10);
+  --series-1:       #3987e5;
+  --series-2:       #199e70;
+  --series-3:       #d95926;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  background: var(--surface-page);
+  color: var(--text-primary);
+  min-height: 100vh;
+}
+.navbar {
+  display: flex; align-items: center; justify-content: space-between;
+  height: 56px; padding: 0 28px;
+  background: var(--surface-1);
+  border-bottom: 1px solid var(--border);
+}
+.navbar .brand { font-size: 17px; font-weight: 600; }
+.navbar .btn-back {
+  padding: 6px 16px; font-size: 12px; color: var(--text-secondary);
+  background: transparent; border: 1px solid var(--border);
+  border-radius: 4px; cursor: pointer; text-decoration: none;
+}
+.navbar .btn-back:hover { border-color: var(--series-1); color: var(--series-1); }
+.container { max-width: 1400px; margin: 0 auto; padding: 28px; }
+.chart-card {
+  background: var(--surface-1); border: 1px solid var(--border);
+  border-radius: 10px; padding: 20px 24px; margin-bottom: 20px;
+}
+.chart-box { width: 100%; height: 450px; }
+.loading-text { color: var(--text-muted); font-size: 13px; text-align: center; padding: 80px 0; }
+</style>
+</head>
+<body>
+
+<nav class="navbar">
+  <span class="brand">📈 月度趋势分析</span>
+  <a class="btn-back" href="dashboard.html">← 返回工作台</a>
+</nav>
+
+<div class="container">
+  <div class="chart-card">
+    <div class="chart-box" id="chartCumulative"></div>
+  </div>
+  <div class="chart-card">
+    <div class="chart-box" id="chartMonthly"></div>
+  </div>
+</div>
+
+<script>
+const DARK_TEXT = '#c3c2b7';
+const DARK_MUTED = '#898781';
+const DARK_GRID = '#2c2c2a';
+const DARK_BASE = '#383835';
+const SERIES_1 = '#3987e5';
+const SERIES_2 = '#199e70';
+const SERIES_3 = '#d95926';
+function comma(n) { return n == null ? '—' : Number(n).toLocaleString('en-US'); }
+function compact(n) {
+  if (n == null) return '—';
+  if (n >= 1e6) return (n/1e6).toFixed(1)+'M';
+  if (n >= 1e3) return (n/1e3).toFixed(1)+'K';
+  return String(n);
+}
+
+let chartCum, chartMon;
+
+function render(data) {
+  if (!data || !data.length) return;
+
+  const months = data.map(d => d.month);
+
+  const dom1 = document.getElementById('chartCumulative');
+  if (chartCum) chartCum.dispose();
+  chartCum = echarts.init(dom1);
+  chartCum.setOption({
+    title: { text: '累计 Star 趋势', left: 'center', top: 8, textStyle: { color: '#ffffff', fontSize: 18, fontWeight: 600 } },
+    tooltip: { trigger: 'axis', backgroundColor: '#1a1a19', borderColor: '#383835', textStyle: { color: '#ffffff', fontSize: 13 } },
+    grid: { left: 12, right: 24, top: 60, bottom: 28, containLabel: true },
+    xAxis: { type: 'category', data: months, axisLine: { lineStyle: { color: DARK_BASE } }, axisTick: { show: false }, axisLabel: { color: DARK_MUTED, fontSize: 11 } },
+    yAxis: { type: 'value', name: '累计 Star', nameTextStyle: { color: DARK_MUTED, fontSize: 11 }, axisLabel: { color: DARK_MUTED, fontSize: 11, formatter: compact }, splitLine: { lineStyle: { color: DARK_GRID } } },
+    series: [{
+      name: '累计 Star', type: 'line', data: data.map(d => d.cumulativeStars), smooth: true,
+      symbol: 'circle', symbolSize: 6,
+      lineStyle: { color: SERIES_1, width: 2 },
+      itemStyle: { color: SERIES_1, borderColor: '#1a1a19', borderWidth: 2 },
+      areaStyle: { color: new echarts.graphic.LinearGradient(0,0,0,1,[
+        { offset:0, color: 'rgba(57,135,229,0.18)' }, { offset:1, color: 'rgba(57,135,229,0.02)' }
+      ])},
+      markPoint: { data: [{ type: 'max', name: '峰值' }], symbolSize: 48, label: { color: DARK_TEXT, fontSize: 11 }, itemStyle: { color: SERIES_1 } },
+    }],
+  });
+
+  const dom2 = document.getElementById('chartMonthly');
+  if (chartMon) chartMon.dispose();
+  chartMon = echarts.init(dom2);
+  chartMon.setOption({
+    title: { text: '月度新增仓库 & 活跃仓库', left: 'center', top: 8, textStyle: { color: '#ffffff', fontSize: 18, fontWeight: 600 } },
+    tooltip: { trigger: 'axis', backgroundColor: '#1a1a19', borderColor: '#383835', textStyle: { color: '#ffffff', fontSize: 13 } },
+    legend: { data: ['新增仓库','活跃仓库','新增Star'], bottom: 0, textStyle: { color: DARK_TEXT, fontSize: 12 } },
+    grid: { left: 12, right: 24, top: 60, bottom: 40, containLabel: true },
+    xAxis: { type: 'category', data: months, axisLine: { lineStyle: { color: DARK_BASE } }, axisTick: { show: false }, axisLabel: { color: DARK_MUTED, fontSize: 11 } },
+    yAxis: { type: 'value', axisLabel: { color: DARK_MUTED, fontSize: 11, formatter: compact }, splitLine: { lineStyle: { color: DARK_GRID } } },
+    series: [
+      { name: '新增仓库', type: 'bar', data: data.map(d => d.newRepos), itemStyle: { color: SERIES_1, borderRadius: [4,4,0,0] }, barMaxWidth: 20, barGap: '30%' },
+      { name: '活跃仓库', type: 'bar', data: data.map(d => d.activeRepos), itemStyle: { color: SERIES_2, borderRadius: [4,4,0,0] }, barMaxWidth: 20 },
+      { name: '新增Star', type: 'bar', data: data.map(d => d.newStars), itemStyle: { color: SERIES_3, borderRadius: [4,4,0,0] }, barMaxWidth: 20 },
+    ],
+  });
+}
+
+fetch('/api/trend')
+  .then(r => r.json())
+  .then(j => { if (j.code===0 && j.data) render(j.data); })
+  .catch(() => { document.getElementById('chartCumulative').innerHTML = '<div class="loading-text">数据加载失败</div>'; });
+
+window.addEventListener('resize', () => { if (chartCum) chartCum.resize(); if (chartMon) chartMon.resize(); });
+</script>
+</body>
+</html>

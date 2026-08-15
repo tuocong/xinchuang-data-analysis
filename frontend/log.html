@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>系统日志 - 信创开源数据分析平台</title>
+<style>
+/* ============================================================
+   Design tokens（与 index.html 统一色板）
+   ============================================================ */
+:root {
+  --surface-page:   #0d0d0d;
+  --surface-1:      #1a1a19;
+  --text-primary:   #ffffff;
+  --text-secondary: #c3c2b7;
+  --text-muted:     #898781;
+  --border:         rgba(255,255,255,0.10);
+  --series-1:       #3987e5;
+  --series-3:       #199e70;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  background: var(--surface-page);
+  color: var(--text-primary);
+  min-height: 100vh;
+}
+.navbar {
+  display: flex; align-items: center; justify-content: space-between;
+  height: 56px; padding: 0 28px;
+  background: var(--surface-1); border-bottom: 1px solid var(--border);
+}
+.navbar .brand { font-size: 17px; font-weight: 600; }
+.navbar .btn-back {
+  padding: 6px 16px; font-size: 12px; color: var(--text-secondary);
+  background: transparent; border: 1px solid var(--border);
+  border-radius: 4px; cursor: pointer; text-decoration: none;
+}
+.navbar .btn-back:hover { border-color: var(--series-1); color: var(--series-1); }
+.container { max-width: 1400px; margin: 0 auto; padding: 28px; }
+
+/* ============================================================
+   筛选栏
+   ============================================================ */
+.filter-bar {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  margin-bottom: 20px; padding: 16px 20px;
+  background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px;
+}
+.filter-select {
+  height: 38px; padding: 0 12px; font-size: 13px;
+  color: var(--text-secondary); background: var(--surface-page);
+  border: 1px solid var(--border); border-radius: 6px; cursor: pointer; outline: none;
+}
+.filter-select:focus { border-color: var(--series-1); }
+.search-box { display: flex; gap: 12px; flex: 1; min-width: 240px; }
+.search-box input {
+  flex: 1; height: 38px; padding: 0 14px;
+  font-size: 13px; color: var(--text-primary);
+  background: var(--surface-page); border: 1px solid var(--border);
+  border-radius: 6px; outline: none;
+}
+.search-box input:focus { border-color: var(--series-1); }
+.search-box input::placeholder { color: var(--text-muted); }
+.btn {
+  height: 38px; padding: 0 18px; font-size: 13px;
+  border-radius: 6px; cursor: pointer; transition: all 0.2s;
+}
+.btn-primary { background: var(--series-1); color: #fff; border: none; font-weight: 600; }
+.btn-primary:hover { background: #2b6ec9; }
+.btn-ghost { background: transparent; color: var(--text-secondary); border: 1px solid var(--border); }
+.btn-ghost:hover { border-color: var(--series-1); color: var(--series-1); }
+
+/* ============================================================
+   表格 & 分页
+   ============================================================ */
+.table-panel {
+  background: var(--surface-1); border: 1px solid var(--border);
+  border-radius: 10px; overflow: hidden;
+}
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+thead th {
+  text-align: left; padding: 12px 16px;
+  color: var(--text-muted); font-weight: 500; font-size: 12px;
+  background: rgba(255,255,255,0.03); border-bottom: 1px solid var(--border);
+  letter-spacing: 0.02em;
+}
+tbody td { padding: 11px 16px; color: var(--text-secondary); border-bottom: 1px solid rgba(255,255,255,0.04); }
+tbody tr:hover { background: rgba(57,135,229,0.06); }
+tbody tr:last-child td { border-bottom: none; }
+td.time { color: var(--text-muted); font-variant-numeric: tabular-nums; }
+td.user { color: var(--text-primary); font-weight: 500; }
+td.ip { color: var(--text-muted); font-variant-numeric: tabular-nums; }
+
+.type-badge { display: inline-block; padding: 2px 10px; border-radius: 10px; font-size: 11px; font-weight: 500; }
+.t-login  { background: rgba(57,135,229,0.2);  color: #5598e7; }
+.t-logout { background: rgba(137,135,129,0.2); color: #c3c2b7; }
+.t-query  { background: rgba(25,158,112,0.2);  color: #33c488; }
+.t-export { background: rgba(0,131,0,0.22);    color: #5bbf6a; }
+.t-add    { background: rgba(201,133,0,0.22);  color: #e0a93e; }
+.t-edit   { background: rgba(201,133,0,0.22);  color: #e0a93e; }
+.t-delete { background: rgba(230,103,103,0.2); color: #e66767; }
+.t-pass   { background: rgba(144,133,233,0.2); color: #a89ff0; }
+
+.status-badge { display: inline-block; padding: 2px 10px; border-radius: 10px; font-size: 11px; font-weight: 500; }
+.status-badge.ok   { background: rgba(25,158,112,0.2); color: #33c488; }
+.status-badge.fail { background: rgba(230,103,103,0.2); color: #e66767; }
+
+.pager {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  padding: 14px 16px; border-top: 1px solid var(--border);
+}
+.page-btn {
+  min-width: 34px; height: 32px; padding: 0 12px; font-size: 13px;
+  color: var(--text-secondary); background: transparent;
+  border: 1px solid var(--border); border-radius: 6px; cursor: pointer;
+}
+.page-btn:hover:not(:disabled) { border-color: var(--series-1); color: var(--series-1); }
+.page-btn.active { background: var(--series-1); color: #fff; border-color: var(--series-1); font-weight: 600; }
+.page-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.page-ellipsis { color: var(--text-muted); padding: 0 2px; }
+.page-info { font-size: 12px; color: var(--text-muted); margin-left: auto; }
+.page-size {
+  height: 32px; padding: 0 8px; font-size: 12px;
+  color: var(--text-secondary); background: var(--surface-page);
+  border: 1px solid var(--border); border-radius: 6px; cursor: pointer; outline: none;
+}
+
+.empty-text { color: var(--text-muted); font-size: 14px; text-align: center; padding: 40px 0; }
+</style>
+</head>
+<body>
+
+<nav class="navbar">
+  <span class="brand">📜 系统日志</span>
+  <a class="btn-back" href="dashboard.html">← 返回工作台</a>
+</nav>
+
+<div class="container">
+
+  <!-- 筛选栏 -->
+  <div class="filter-bar">
+    <select class="filter-select" id="typeSelect" onchange="applyFilter()">
+      <option value="">全部类型</option>
+      <option>登录</option>
+      <option>导出</option>
+      <option>新增用户</option>
+      <option>修改用户</option>
+      <option>删除用户</option>
+      <option>修改密码</option>
+    </select>
+    <div class="search-box">
+      <input type="text" id="searchInput" placeholder="搜索用户名或操作详情..." onkeydown="if(event.key==='Enter')applyFilter()">
+    </div>
+    <button class="btn btn-primary" onclick="applyFilter()">🔍 筛选</button>
+    <button class="btn btn-ghost" onclick="resetFilter()">重置</button>
+  </div>
+
+  <!-- 日志表格 -->
+  <div class="table-panel">
+    <table>
+      <thead>
+        <tr>
+          <th style="width:170px">时间</th>
+          <th style="width:110px">用户</th>
+          <th style="width:100px">操作类型</th>
+          <th>操作详情</th>
+          <th style="width:120px">IP 地址</th>
+        </tr>
+      </thead>
+      <tbody id="tableBody"></tbody>
+    </table>
+
+    <div class="pager">
+      <span class="page-info" id="pageInfo">共 0 条</span>
+      <select class="page-size" id="pageSize" onchange="changePageSize()">
+        <option value="10" selected>10 条/页</option>
+        <option value="20">20 条/页</option>
+        <option value="50">50 条/页</option>
+      </select>
+      <div id="pager"></div>
+    </div>
+  </div>
+
+</div>
+
+<script src="js/auth.js"></script>
+<script>
+/* ============================================================
+   系统日志（真实接口 /api/logs，管理员专属）
+   ============================================================ */
+const TYPE_CLASS = {
+  '登录': 't-login', '导出': 't-export', '新增用户': 't-add',
+  '修改用户': 't-edit', '删除用户': 't-delete', '修改密码': 't-pass',
+};
+
+function esc(s) { return s ?
+  String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') : ''; }
+
+let logs = [];
+let filtered = [];
+let page = 1;
+let pageSize = 10;
+
+function loadLogs() {
+  authFetch('/api/logs')
+    .then(r => r.json())
+    .then(json => {
+      if (json.code !== 0) { alert(json.msg || '加载失败'); return; }
+      logs = json.data.map(d => ({
+        time: d.create_time,
+        user: d.username,
+        type: d.action,
+        detail: d.detail || '',
+        ip: d.ip || '—',
+      }));
+      applyFilter();
+    })
+    .catch(() => {
+      document.getElementById('tableBody').innerHTML =
+        '<tr><td colspan="5" class="empty-text">加载失败，请确认已登录且服务已启动</td></tr>';
+    });
+}
+
+function applyFilter() {
+  const type = document.getElementById('typeSelect').value;
+  const kw = document.getElementById('searchInput').value.trim().toLowerCase();
+
+  filtered = logs.filter(d =>
+    (!type || d.type === type) &&
+    (!kw || d.user.toLowerCase().includes(kw) || d.detail.toLowerCase().includes(kw))
+  );
+  page = 1;
+  render();
+}
+
+function resetFilter() {
+  document.getElementById('typeSelect').value = '';
+  document.getElementById('searchInput').value = '';
+  applyFilter();
+}
+
+function render() {
+  const total = filtered.length;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  if (page > totalPages) page = totalPages;
+  const start = (page - 1) * pageSize;
+  const rows = filtered.slice(start, start + pageSize);
+
+  document.getElementById('tableBody').innerHTML = rows.length ? rows.map(d => `
+    <tr>
+      <td class="time">${esc(d.time)}</td>
+      <td class="user">${esc(d.user)}</td>
+      <td><span class="type-badge ${TYPE_CLASS[d.type] || 't-query'}">${esc(d.type)}</span></td>
+      <td>${esc(d.detail)}</td>
+      <td class="ip">${esc(d.ip)}</td>
+    </tr>
+  `).join('') : '<tr><td colspan="5" class="empty-text">暂无日志</td></tr>';
+
+  document.getElementById('pageInfo').textContent = `共 ${total} 条 · 第 ${page} / ${totalPages} 页`;
+  renderPager(totalPages);
+}
+
+function renderPager(totalPages) {
+  const el = document.getElementById('pager');
+  if (totalPages <= 1) { el.innerHTML = ''; return; }
+  const win = 2;
+  const pages = [];
+  for (let i = 1; i <= totalPages; i++) {
+    if (i === 1 || i === totalPages || Math.abs(i - page) <= win) pages.push(i);
+  }
+  let html = `<button class="page-btn" ${page === 1 ? 'disabled' : ''} onclick="goPage(${page - 1})">‹ 上一页</button>`;
+  let prev = 0;
+  for (const p of pages) {
+    if (prev && p - prev > 1) html += '<span class="page-ellipsis">…</span>';
+    html += `<button class="page-btn ${p === page ? 'active' : ''}" onclick="goPage(${p})">${p}</button>`;
+    prev = p;
+  }
+  html += `<button class="page-btn" ${page === totalPages ? 'disabled' : ''} onclick="goPage(${page + 1})">下一页 ›</button>`;
+  el.innerHTML = html;
+}
+
+function goPage(p) { page = p; render(); }
+function changePageSize() {
+  pageSize = Number(document.getElementById('pageSize').value);
+  page = 1;
+  render();
+}
+
+if (requireLogin()) loadLogs();
+</script>
+</body>
+</html>

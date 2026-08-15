@@ -1,0 +1,23 @@
+# 敏感信息
+.env
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+
+# IDE
+.vscode/
+.idea/
+
+# 数据文件（可选：如果想版本控制原始数据则删除下面两行）
+data/raw/*.json
+data/cleaned/*.json
+
+# 操作系统
+.DS_Store
+Thumbs.db
+
+# Office 临时锁文件（Word/WPS 打开文档时生成）
+~$*

@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>组织钻取分析 - 信创开源数据分析平台</title>
+<style>
+/* ============================================================
+   Design tokens（与 index.html 统一色板）
+   ============================================================ */
+:root {
+  --surface-page:   #0d0d0d;
+  --surface-1:      #1a1a19;
+  --text-primary:   #ffffff;
+  --text-secondary: #c3c2b7;
+  --text-muted:     #898781;
+  --border:         rgba(255,255,255,0.10);
+  --series-1:       #3987e5;
+  --series-3:       #199e70;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  background: var(--surface-page);
+  color: var(--text-primary);
+  min-height: 100vh;
+}
+.navbar {
+  display: flex; align-items: center; justify-content: space-between;
+  height: 56px; padding: 0 28px;
+  background: var(--surface-1);
+  border-bottom: 1px solid var(--border);
+}
+.navbar .brand { font-size: 17px; font-weight: 600; }
+.navbar .btn-back {
+  padding: 6px 16px; font-size: 12px; color: var(--text-secondary);
+  background: transparent; border: 1px solid var(--border);
+  border-radius: 4px; cursor: pointer; text-decoration: none;
+}
+.navbar .btn-back:hover { border-color: var(--series-1); color: var(--series-1); }
+
+.container {
+  max-width: 1400px; margin: 0 auto; padding: 28px;
+  display: flex; gap: 20px; align-items: flex-start;
+}
+
+/* ============================================================
+   左侧：组织列表
+   ============================================================ */
+.org-panel {
+  width: 340px; flex-shrink: 0;
+  background: var(--surface-1); border: 1px solid var(--border);
+  border-radius: 10px; overflow: hidden;
+}
+.org-panel .panel-header {
+  padding: 16px 20px; font-size: 15px; font-weight: 600;
+  border-bottom: 1px solid var(--border);
+}
+.org-panel .panel-header .org-total { font-size: 12px; color: var(--text-muted); font-weight: 400; }
+.org-list { max-height: 660px; overflow-y: auto; }
+.org-item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 13px 20px; border-bottom: 1px solid rgba(255,255,255,0.04);
+  cursor: pointer; transition: background 0.15s;
+}
+.org-item:hover { background: rgba(57,135,229,0.08); }
+.org-item.active { background: rgba(57,135,229,0.16); border-left: 3px solid var(--series-1); }
+.org-item .org-main { flex: 1; min-width: 0; }
+.org-item .org-name { font-size: 14px; color: var(--text-primary); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.org-item .org-meta { font-size: 11px; color: var(--text-muted); margin-top: 3px; }
+.org-item .org-stars { font-size: 12px; color: var(--text-secondary); white-space: nowrap; }
+
+/* ============================================================
+   右侧：组织详情 + 仓库明细
+   ============================================================ */
+.detail-panel { flex: 1; min-width: 0; }
+.detail-header {
+  background: var(--surface-1); border: 1px solid var(--border);
+  border-radius: 10px; padding: 20px 24px; margin-bottom: 20px;
+}
+.detail-header h2 { font-size: 18px; font-weight: 600; margin-bottom: 16px; }
+.detail-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+.detail-stat {
+  background: var(--surface-page); border: 1px solid var(--border);
+  border-radius: 8px; padding: 14px 16px;
+}
+.detail-stat .stat-label { font-size: 12px; color: var(--text-muted); margin-bottom: 6px; }
+.detail-stat .stat-value { font-size: 22px; font-weight: 600; color: var(--text-primary); }
+
+.table-panel {
+  background: var(--surface-1); border: 1px solid var(--border);
+  border-radius: 10px; overflow: hidden;
+}
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+thead th {
+  text-align: left; padding: 12px 16px;
+  color: var(--text-muted); font-weight: 500; font-size: 12px;
+  background: rgba(255,255,255,0.03); border-bottom: 1px solid var(--border);
+  letter-spacing: 0.02em;
+}
+thead th.num, td.num { text-align: right; }
+tbody td { padding: 11px 16px; color: var(--text-secondary); border-bottom: 1px solid rgba(255,255,255,0.04); }
+tbody td.num { color: var(--text-primary); font-weight: 500; }
+tbody tr:hover { background: rgba(57,135,229,0.06); }
+
+.platform-badge { display: inline-block; padding: 2px 10px; border-radius: 10px; font-size: 11px; font-weight: 500; }
+.platform-badge.github { background: rgba(57,135,229,0.2); color: #5598e7; }
+.platform-badge.gitee  { background: rgba(25,158,112,0.2); color: #33c488; }
+
+.loading-text { color: var(--text-muted); font-size: 13px; text-align: center; padding: 60px 0; }
+.empty-text { color: var(--text-muted); font-size: 14px; text-align: center; padding: 40px 0; }
+
+@media (max-width: 900px) {
+  .container { flex-direction: column; }
+  .org-panel { width: 100%; }
+}
+</style>
+</head>
+<body>
+
+<nav class="navbar">
+  <span class="brand">🏢 组织钻取分析</span>
+  <a class="btn-back" href="dashboard.html">← 返回工作台</a>
+</nav>
+
+<div class="container">
+
+  <!-- 左侧：组织列表 -->
+  <div class="org-panel">
+    <div class="panel-header">📁 组织列表 <span class="org-total" id="orgTotal"></span></div>
+    <div class="org-list" id="orgList">
+      <div class="loading-text">加载中...</div>
+    </div>
+  </div>
+
+  <!-- 右侧：详情 + 仓库明细 -->
+  <div class="detail-panel">
+    <div class="detail-header">
+      <h2 id="detailTitle">请选择组织</h2>
+      <div class="detail-stats" id="detailStats"></div>
+    </div>
+
+    <div class="table-panel">
+      <table>
+        <thead>
+          <tr>
+            <th>仓库全名</th>
+            <th>语言</th>
+            <th class="num">⭐ Star</th>
+            <th class="num">🍴 Fork</th>
+            <th class="num">👀 Watch</th>
+            <th>平台</th>
+          </tr>
+        </thead>
+        <tbody id="repoBody">
+          <tr><td colspan="6" class="loading-text">请从左侧选择一个组织</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<script>
+function comma(n) { return n == null ? '—' : Number(n).toLocaleString('en-US'); }
+function compact(n) {
+  if (n == null) return '—';
+  if (n >= 1e6) return (n/1e6).toFixed(1)+'M';
+  if (n >= 1e3) return (n/1e3).toFixed(1)+'K';
+  return String(n);
+}
+function esc(s) { return s ?
+  String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') : ''; }
+
+let orgs = [];
+
+/* ============================================================
+   组织列表
+   ============================================================ */
+function loadOrgs() {
+  fetch('/api/org-compare')
+    .then(r => r.json())
+    .then(j => {
+      if (j.code !== 0 || !j.data) throw new Error('API error');
+      orgs = j.data;
+      document.getElementById('orgTotal').textContent = `（${orgs.length} 个）`;
+      renderOrgList();
+      if (orgs.length) selectOrg(0);
+    })
+    .catch(() => {
+      document.getElementById('orgList').innerHTML = '<div class="loading-text">数据加载失败，请确认 Flask 服务已启动</div>';
+    });
+}
+
+function renderOrgList() {
+  document.getElementById('orgList').innerHTML = orgs.map((d, i) => `
+    <div class="org-item" onclick="selectOrg(${i})">
+      <div class="org-main">
+        <div class="org-name">${esc(d.orgName)}</div>
+        <div class="org-meta">仓库 ${comma(d.repoCount)} · 活跃率 ${d.activeRate != null ? Number(d.activeRate).toFixed(1) + '%' : '—'}</div>
+      </div>
+      <div class="org-stars">⭐ ${compact(d.totalStars)}</div>
+    </div>
+  `).join('');
+}
+
+/* ============================================================
+   点击组织 → 钻取仓库明细
+   ============================================================ */
+function selectOrg(i) {
+  const org = orgs[i];
+  if (!org) return;
+  document.querySelectorAll('.org-item').forEach((el, idx) =>
+    el.classList.toggle('active', idx === i));
+
+  document.getElementById('detailTitle').textContent = '🏢 ' + org.orgName;
+  document.getElementById('detailStats').innerHTML = `
+    <div class="detail-stat"><div class="stat-label">仓库数</div><div class="stat-value">${comma(org.repoCount)}</div></div>
+    <div class="detail-stat"><div class="stat-label">总 Star</div><div class="stat-value">${compact(org.totalStars)}</div></div>
+    <div class="detail-stat"><div class="stat-label">平均 Star</div><div class="stat-value">${org.avgStars != null ? Number(org.avgStars).toFixed(1) : '—'}</div></div>
+    <div class="detail-stat"><div class="stat-label">活跃率</div><div class="stat-value">${org.activeRate != null ? Number(org.activeRate).toFixed(1) + '%' : '—'}</div></div>
+  `;
+
+  loadRepos(org.orgName);
+}
+
+function loadRepos(orgName) {
+  const tbody = document.getElementById('repoBody');
+  tbody.innerHTML = '<tr><td colspan="6" class="loading-text">加载中...</td></tr>';
+
+  fetch('/api/org-repos?org=' + encodeURIComponent(orgName))
+    .then(r => r.json())
+    .then(j => {
+      if (j.code !== 0) throw new Error('API error');
+      const rows = j.data || [];
+      if (!rows.length) {
+        tbody.innerHTML = '<tr><td colspan="6" class="empty-text">该组织暂无仓库明细</td></tr>';
+        return;
+      }
+      tbody.innerHTML = rows.map(d => `
+        <tr>
+          <td style="color:var(--text-primary);font-weight:500">${esc(d.fullName)}</td>
+          <td>${d.language || '<span style="color:var(--text-muted)">N/A</span>'}</td>
+          <td class="num">${comma(d.starsCount)}</td>
+          <td class="num">${comma(d.forksCount)}</td>
+          <td class="num">${comma(d.watchersCount)}</td>
+          <td><span class="platform-badge ${d.platform}">${d.platform === 'gitee' ? 'Gitee' : 'GitHub'}</span></td>
+        </tr>
+      `).join('');
+    })
+    .catch(() => {
+      tbody.innerHTML = '<tr><td colspan="6" class="loading-text">仓库明细加载失败</td></tr>';
+    });
+}
+
+loadOrgs();
+</script>
+</body>
+</html>

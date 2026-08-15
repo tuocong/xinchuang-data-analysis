@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>用户管理 - 信创开源数据分析平台</title>
+<style>
+/* ============================================================
+   Design tokens（与 index.html 统一色板）
+   ============================================================ */
+:root {
+  --surface-page:   #0d0d0d;
+  --surface-1:      #1a1a19;
+  --text-primary:   #ffffff;
+  --text-secondary: #c3c2b7;
+  --text-muted:     #898781;
+  --border:         rgba(255,255,255,0.10);
+  --series-1:       #3987e5;
+  --series-3:       #199e70;
+  --danger:         #e66767;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  background: var(--surface-page);
+  color: var(--text-primary);
+  min-height: 100vh;
+}
+.navbar {
+  display: flex; align-items: center; justify-content: space-between;
+  height: 56px; padding: 0 28px;
+  background: var(--surface-1); border-bottom: 1px solid var(--border);
+}
+.navbar .brand { font-size: 17px; font-weight: 600; }
+.navbar .btn-back {
+  padding: 6px 16px; font-size: 12px; color: var(--text-secondary);
+  background: transparent; border: 1px solid var(--border);
+  border-radius: 4px; cursor: pointer; text-decoration: none;
+}
+.navbar .btn-back:hover { border-color: var(--series-1); color: var(--series-1); }
+.container { max-width: 1200px; margin: 0 auto; padding: 28px; }
+
+/* ============================================================
+   工具栏
+   ============================================================ */
+.toolbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+.toolbar .page-title { font-size: 18px; font-weight: 600; }
+.toolbar .user-count { font-size: 12px; color: var(--text-muted); }
+.btn {
+  height: 40px; padding: 0 20px; font-size: 14px;
+  border-radius: 6px; cursor: pointer; transition: all 0.2s;
+}
+.btn-primary { background: var(--series-1); color: #fff; border: none; font-weight: 600; }
+.btn-primary:hover { background: #2b6ec9; }
+
+/* ============================================================
+   表格
+   ============================================================ */
+.table-panel {
+  background: var(--surface-1); border: 1px solid var(--border);
+  border-radius: 10px; overflow: hidden;
+}
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+thead th {
+  text-align: left; padding: 12px 16px;
+  color: var(--text-muted); font-weight: 500; font-size: 12px;
+  background: rgba(255,255,255,0.03); border-bottom: 1px solid var(--border);
+  letter-spacing: 0.02em;
+}
+tbody td { padding: 12px 16px; color: var(--text-secondary); border-bottom: 1px solid rgba(255,255,255,0.04); }
+tbody tr:hover { background: rgba(57,135,229,0.06); }
+tbody tr:last-child td { border-bottom: none; }
+
+.role-badge { display: inline-block; padding: 2px 10px; border-radius: 10px; font-size: 11px; font-weight: 500; }
+.role-badge.admin { background: rgba(57,135,229,0.2); color: #5598e7; }
+.role-badge.user  { background: rgba(137,135,129,0.2); color: #c3c2b7; }
+.status-badge { display: inline-block; padding: 2px 10px; border-radius: 10px; font-size: 11px; font-weight: 500; }
+.status-badge.on  { background: rgba(25,158,112,0.2); color: #33c488; }
+.status-badge.off { background: rgba(230,103,103,0.2); color: #e66767; }
+
+.row-action { font-size: 13px; color: var(--series-1); cursor: pointer; margin-right: 14px; }
+.row-action:hover { text-decoration: underline; }
+.row-action.danger { color: var(--danger); }
+
+.empty-text { color: var(--text-muted); font-size: 14px; text-align: center; padding: 60px 0; }
+
+/* ============================================================
+   模态框（新增/编辑）
+   ============================================================ */
+.modal-backdrop {
+  display: none; position: fixed; inset: 0; z-index: 50;
+  background: rgba(0,0,0,0.6); align-items: center; justify-content: center;
+}
+.modal-backdrop.open { display: flex; }
+.modal {
+  width: 440px; background: var(--surface-1);
+  border: 1px solid var(--border); border-radius: 12px;
+  box-shadow: 0 16px 48px rgba(0,0,0,0.6); overflow: hidden;
+}
+.modal-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 18px 22px; font-size: 16px; font-weight: 600;
+  border-bottom: 1px solid var(--border);
+}
+.modal-close { font-size: 16px; color: var(--text-muted); cursor: pointer; }
+.modal-close:hover { color: var(--text-primary); }
+.modal-body { padding: 22px; }
+.form-group { margin-bottom: 16px; }
+.form-group label {
+  display: block; font-size: 13px; color: var(--text-secondary); margin-bottom: 8px;
+}
+.form-group input, .form-group select {
+  width: 100%; height: 40px; padding: 0 12px;
+  font-size: 14px; color: var(--text-primary);
+  background: var(--surface-page); border: 1px solid var(--border);
+  border-radius: 6px; outline: none;
+}
+.form-group input:focus, .form-group select:focus { border-color: var(--series-1); }
+.form-row { display: flex; gap: 14px; }
+.form-row .form-group { flex: 1; }
+.modal-footer {
+  display: flex; justify-content: flex-end; gap: 12px;
+  padding: 16px 22px; border-top: 1px solid var(--border);
+}
+.btn-cancel {
+  height: 38px; padding: 0 20px; font-size: 14px;
+  color: var(--text-secondary); background: transparent;
+  border: 1px solid var(--border); border-radius: 6px; cursor: pointer;
+}
+.btn-cancel:hover { border-color: var(--series-1); color: var(--series-1); }
+.btn-save {
+  height: 38px; padding: 0 20px; font-size: 14px; font-weight: 600;
+  color: #fff; background: var(--series-1); border: none; border-radius: 6px; cursor: pointer;
+}
+.btn-save:hover { background: #2b6ec9; }
+</style>
+</head>
+<body>
+
+<nav class="navbar">
+  <span class="brand">👥 用户管理</span>
+  <a class="btn-back" href="dashboard.html">← 返回工作台</a>
+</nav>
+
+<div class="container">
+
+  <div class="toolbar">
+    <div>
+      <span class="page-title">系统用户</span>
+      <span class="user-count" id="userCount"></span>
+    </div>
+    <button class="btn btn-primary" onclick="openAdd()">➕ 新增用户</button>
+  </div>
+
+  <div class="table-panel">
+    <table>
+      <thead>
+        <tr>
+          <th style="width:60px">ID</th>
+          <th>用户名</th>
+          <th>角色</th>
+          <th>状态</th>
+          <th>创建时间</th>
+          <th style="width:120px">操作</th>
+        </tr>
+      </thead>
+      <tbody id="userBody"></tbody>
+    </table>
+  </div>
+
+</div>
+
+<!-- 新增/编辑模态框 -->
+<div class="modal-backdrop" id="modal" onclick="if(event.target===this)hideModal()">
+  <div class="modal">
+    <div class="modal-header">
+      <span id="modalTitle">新增用户</span>
+      <span class="modal-close" onclick="hideModal()">✕</span>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>用户名</label>
+        <input id="fUsername" type="text" placeholder="登录用户名">
+      </div>
+      <div class="form-group" id="pwdGroup">
+        <label>初始密码</label>
+        <input id="fPassword" type="password" placeholder="至少 6 位">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>角色</label>
+          <select id="fRole">
+            <option value="user">普通用户</option>
+            <option value="admin">管理员</option>
+          </select>
+        </div>
+        <div class="form-group" id="statusGroup">
+          <label>状态</label>
+          <select id="fStatus">
+            <option value="1">启用</option>
+            <option value="0">禁用</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="hideModal()">取消</button>
+      <button class="btn-save" onclick="saveUser()">保存</button>
+    </div>
+  </div>
+</div>
+
+<script src="js/auth.js"></script>
+<script>
+/* ============================================================
+   用户管理（真实接口 /api/users，管理员专属）
+   ============================================================ */
+function esc(s) { return s == null ? '' :
+  String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+let users = [];
+let editingId = null;
+
+function loadUsers() {
+  authFetch('/api/users')
+    .then(r => r.json())
+    .then(json => {
+      if (json.code !== 0) { alert(json.msg || '加载失败'); return; }
+      users = json.data;
+      render();
+    })
+    .catch(() => {
+      document.getElementById('userBody').innerHTML =
+        '<tr><td colspan="6" class="empty-text">加载失败，请确认已登录且服务已启动</td></tr>';
+    });
+}
+
+function render() {
+  document.getElementById('userCount').textContent = `共 ${users.length} 个`;
+  document.getElementById('userBody').innerHTML = users.length ? users.map(u => `
+    <tr>
+      <td style="color:var(--text-muted)">${u.user_id}</td>
+      <td style="color:var(--text-primary);font-weight:500">${esc(u.username)}</td>
+      <td><span class="role-badge ${u.role === 'admin' ? 'admin' : 'user'}">${u.role === 'admin' ? '管理员' : '普通用户'}</span></td>
+      <td><span class="status-badge ${u.status === 1 ? 'on' : 'off'}">${u.status === 1 ? '启用' : '禁用'}</span></td>
+      <td style="color:var(--text-muted)">${esc(u.create_time)}</td>
+      <td>
+        <a class="row-action" onclick="openEdit(${u.user_id})">编辑</a>
+        <a class="row-action danger" onclick="delUser(${u.user_id})">删除</a>
+      </td>
+    </tr>
+  `).join('') : '<tr><td colspan="6" class="empty-text">暂无用户</td></tr>';
+}
+
+function openAdd() {
+  editingId = null;
+  document.getElementById('modalTitle').textContent = '新增用户';
+  document.getElementById('fUsername').value = '';
+  document.getElementById('fUsername').disabled = false;
+  document.getElementById('fPassword').value = '';
+  document.getElementById('pwdGroup').style.display = '';
+  document.getElementById('fRole').value = 'user';
+  document.getElementById('statusGroup').style.display = 'none';
+  showModal();
+}
+function openEdit(id) {
+  editingId = id;
+  const u = users.find(x => x.user_id === id);
+  if (!u) return;
+  document.getElementById('modalTitle').textContent = '编辑用户';
+  document.getElementById('fUsername').value = u.username;
+  document.getElementById('fUsername').disabled = true;
+  document.getElementById('pwdGroup').style.display = 'none';
+  document.getElementById('fRole').value = u.role;
+  document.getElementById('statusGroup').style.display = '';
+  document.getElementById('fStatus').value = String(u.status);
+  showModal();
+}
+function showModal() { document.getElementById('modal').classList.add('open'); }
+function hideModal() { document.getElementById('modal').classList.remove('open'); }
+
+function saveUser() {
+  const username = document.getElementById('fUsername').value.trim();
+  const password = document.getElementById('fPassword').value;
+  const role = document.getElementById('fRole').value;
+  const status = document.getElementById('fStatus').value;
+
+  if (editingId == null) {
+    if (!username || !password) { alert('请填写用户名和密码'); return; }
+    authFetch('/api/users', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password, role })
+    })
+      .then(r => r.json())
+      .then(json => {
+        if (json.code !== 0) { alert(json.msg || '创建失败'); return; }
+        hideModal();
+        loadUsers();
+      });
+  } else {
+    authFetch('/api/users/' + editingId, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ role, status: Number(status) })
+    })
+      .then(r => r.json())
+      .then(json => {
+        if (json.code !== 0) { alert(json.msg || '更新失败'); return; }
+        hideModal();
+        loadUsers();
+      });
+  }
+}
+
+function delUser(id) {
+  const u = users.find(x => x.user_id === id);
+  const name = u ? u.username : '';
+  if (!confirm(`确定删除用户「${name}」吗？`)) return;
+  authFetch('/api/users/' + id, { method: 'DELETE' })
+    .then(r => r.json())
+    .then(json => {
+      if (json.code !== 0) { alert(json.msg || '删除失败'); return; }
+      loadUsers();
+    });
+}
+
+if (requireLogin()) loadUsers();
+</script>
+</body>
+</html>
