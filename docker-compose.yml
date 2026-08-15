@@ -1,0 +1,48 @@
+# 信创开源生态数据分析系统 — Docker Compose 编排
+# 用法：docker compose up -d
+# 访问：http://<主机IP>:5000
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: xinchuang-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: "${DB_PASSWORD:-Tuocong666;}"
+      MYSQL_DATABASE: "${DB_NAME:-xinchuang_dw}"
+      TZ: "Asia/Shanghai"
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      # 首次启动自动导入表结构 + 演示数据（只在空数据目录时执行一次）
+      - ./db/xinchuang_dw.sql:/docker-entrypoint-initdb.d/01_xinchuang_dw.sql:ro
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-p${DB_PASSWORD:-Tuocong666;}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  web:
+    build: .
+    container_name: xinchuang-web
+    restart: unless-stopped
+    environment:
+      DB_HOST: "mysql"
+      DB_USER: "root"
+      DB_PASSWORD: "${DB_PASSWORD:-Tuocong666;}"
+      DB_NAME: "${DB_NAME:-xinchuang_dw}"
+      JWT_SECRET: "${JWT_SECRET:-xinchuang-2026-secret}"
+      TZ: "Asia/Shanghai"
+    ports:
+      - "5000:5000"
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+volumes:
+  mysql_data:

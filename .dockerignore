@@ -1,0 +1,24 @@
+# 敏感信息（绝不打进镜像）
+.env
+
+# Git
+.git
+.gitignore
+
+# Python 缓存
+__pycache__/
+*.pyc
+*.pyo
+
+# 数据与 ETL（Web 镜像不需要）
+data/
+db/
+sql/
+analysis_sql/
+scripts/
+docs/
+
+# IDE / 系统
+.vscode/
+.idea/
+*.md
